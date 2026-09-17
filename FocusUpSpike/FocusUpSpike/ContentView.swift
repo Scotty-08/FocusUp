@@ -5,6 +5,7 @@ import ManagedSettingsUI
 struct ContentView: View {
     @StateObject private var manager = FamilyControlsManager.shared
     @State private var isPickerPresented = false
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         ZStack {
@@ -89,6 +90,14 @@ struct ContentView: View {
 
                     statusRow(label: "Shield requested", value: manager.isShielded ? "ON — verify on device" : "OFF")
 
+                    Divider().background(Color.gray)
+
+                    statusRow(label: "Finished it (unlocked)", value: "\(manager.completedCount)")
+                    statusRow(label: "Ignored (gave in anyway)", value: "\(manager.ignoreCount)")
+                    Text("Updates when you come back to FocusUp after hitting a block screen.")
+                        .font(.caption2)
+                        .foregroundStyle(.gray)
+
                     if let error = manager.lastError {
                         Text(error)
                             .foregroundStyle(.red)
@@ -103,7 +112,16 @@ struct ContentView: View {
             }
         }
         .preferredColorScheme(.dark)
-        .onAppear { manager.refreshAuthorizationStatus() }
+        .onAppear {
+            manager.refreshAuthorizationStatus()
+            manager.refreshStats()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                manager.refreshAuthorizationStatus()
+                manager.refreshStats()
+            }
+        }
     }
 
     private var authorizationLabel: String {

@@ -62,3 +62,29 @@ enum GoalStore {
         save(map)
     }
 }
+
+/// Simple counters for the shield's two exit paths, written from the
+/// ShieldActionExtension process and read back in the main app. Not a
+/// real consecutive-day streak yet -- just running totals -- since real
+/// streak semantics (what breaks one, timezone/day boundaries) is a
+/// product decision, not a plumbing one; flagging that rather than
+/// guessing at it.
+enum StatsStore {
+    private static let ignoreKey = "focusUp.ignoreCount"
+    private static let completedKey = "focusUp.completedCount"
+
+    private static var defaults: UserDefaults? {
+        UserDefaults(suiteName: FocusUpShared.appGroupID)
+    }
+
+    static var ignoreCount: Int { defaults?.integer(forKey: ignoreKey) ?? 0 }
+    static var completedCount: Int { defaults?.integer(forKey: completedKey) ?? 0 }
+
+    static func recordIgnore() {
+        defaults?.set(ignoreCount + 1, forKey: ignoreKey)
+    }
+
+    static func recordCompleted() {
+        defaults?.set(completedCount + 1, forKey: completedKey)
+    }
+}
