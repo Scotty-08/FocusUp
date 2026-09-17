@@ -6,14 +6,89 @@
 	objectVersion = 90;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		8257B13E305CB11300C8CB3D /* ManagedSettings.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8257B13D305CB11300C8CB3D /* ManagedSettings.framework */; };
+		8257B140305CB11300C8CB3D /* ManagedSettingsUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8257B13F305CB11300C8CB3D /* ManagedSettingsUI.framework */; };
+		8257B148305CB11300C8CB3D /* ShieldConfigurationExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 8257B13B305CB11300C8CB3D /* ShieldConfigurationExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		8257B153305CB13B00C8CB3D /* ManagedSettings.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8257B13D305CB11300C8CB3D /* ManagedSettings.framework */; };
+		8257B15B305CB13B00C8CB3D /* ShieldActionExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 8257B152305CB13B00C8CB3D /* ShieldActionExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		8257B146305CB11300C8CB3D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 000000000000000000000000 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 8257B13A305CB11300C8CB3D;
+			remoteInfo = ShieldConfigurationExtension;
+		};
+		8257B159305CB13B00C8CB3D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 000000000000000000000000 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 8257B151305CB13B00C8CB3D;
+			remoteInfo = ShieldActionExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		8257B149305CB11300C8CB3D /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			dstPath = "";
+			dstSubfolder = PlugIns;
+			files = (
+				8257B148305CB11300C8CB3D /* ShieldConfigurationExtension.appex in Embed Foundation Extensions */,
+				8257B15B305CB13B00C8CB3D /* ShieldActionExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		000000000000000000000120 /* FocusUpSpike.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FocusUpSpike.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		8257B13B305CB11300C8CB3D /* ShieldConfigurationExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShieldConfigurationExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		8257B13D305CB11300C8CB3D /* ManagedSettings.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ManagedSettings.framework; path = System/Library/Frameworks/ManagedSettings.framework; sourceTree = SDKROOT; };
+		8257B13F305CB11300C8CB3D /* ManagedSettingsUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ManagedSettingsUI.framework; path = Library/Frameworks/ManagedSettingsUI.framework; sourceTree = DEVELOPER_DIR; };
+		8257B152305CB13B00C8CB3D /* ShieldActionExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShieldActionExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		8257B14C305CB11300C8CB3D /* Exceptions for "ShieldConfigurationExtension" folder in "ShieldConfigurationExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 8257B13A305CB11300C8CB3D /* ShieldConfigurationExtension */;
+		};
+		8257B15C305CB13B00C8CB3D /* Exceptions for "ShieldActionExtension" folder in "ShieldActionExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 8257B151305CB13B00C8CB3D /* ShieldActionExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		000000000000000000000010 /* FocusUpSpike */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = FocusUpSpike;
+			sourceTree = "<group>";
+		};
+		8257B141305CB11300C8CB3D /* ShieldConfigurationExtension */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				8257B14C305CB11300C8CB3D /* Exceptions for "ShieldConfigurationExtension" folder in "ShieldConfigurationExtension" target */,
+			);
+			path = ShieldConfigurationExtension;
+			sourceTree = "<group>";
+		};
+		8257B154305CB13B00C8CB3D /* ShieldActionExtension */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				8257B15C305CB13B00C8CB3D /* Exceptions for "ShieldActionExtension" folder in "ShieldActionExtension" target */,
+			);
+			path = ShieldActionExtension;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -24,6 +99,19 @@
 			files = (
 			);
 		};
+		8257B138305CB11300C8CB3D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+				8257B13E305CB11300C8CB3D /* ManagedSettings.framework in Frameworks */,
+				8257B140305CB11300C8CB3D /* ManagedSettingsUI.framework in Frameworks */,
+			);
+		};
+		8257B14F305CB13B00C8CB3D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+				8257B153305CB13B00C8CB3D /* ManagedSettings.framework in Frameworks */,
+			);
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -31,6 +119,9 @@
 			isa = PBXGroup;
 			children = (
 				000000000000000000000010 /* FocusUpSpike */,
+				8257B141305CB11300C8CB3D /* ShieldConfigurationExtension */,
+				8257B154305CB13B00C8CB3D /* ShieldActionExtension */,
+				8257B13C305CB11300C8CB3D /* Frameworks */,
 				000000000000000000000020 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -39,8 +130,19 @@
 			isa = PBXGroup;
 			children = (
 				000000000000000000000120 /* FocusUpSpike.app */,
+				8257B13B305CB11300C8CB3D /* ShieldConfigurationExtension.appex */,
+				8257B152305CB13B00C8CB3D /* ShieldActionExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		8257B13C305CB11300C8CB3D /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				8257B13D305CB11300C8CB3D /* ManagedSettings.framework */,
+				8257B13F305CB11300C8CB3D /* ManagedSettingsUI.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -53,8 +155,13 @@
 				000000000000000120000000 /* Sources */,
 				000000000000000130000000 /* Frameworks */,
 				000000000000000140000000 /* Resources */,
+				8257B149305CB11300C8CB3D /* Embed Foundation Extensions */,
 			);
 			buildRules = (
+			);
+			dependencies = (
+				8257B147305CB11300C8CB3D /* PBXTargetDependency */,
+				8257B15A305CB13B00C8CB3D /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				000000000000000000000010 /* FocusUpSpike */,
@@ -64,6 +171,42 @@
 			productReference = 000000000000000000000120 /* FocusUpSpike.app */;
 			productType = "com.apple.product-type.application";
 		};
+		8257B13A305CB11300C8CB3D /* ShieldConfigurationExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8257B14D305CB11300C8CB3D /* Build configuration list for PBXNativeTarget "ShieldConfigurationExtension" */;
+			buildPhases = (
+				8257B137305CB11300C8CB3D /* Sources */,
+				8257B138305CB11300C8CB3D /* Frameworks */,
+				8257B139305CB11300C8CB3D /* Resources */,
+			);
+			buildRules = (
+			);
+			fileSystemSynchronizedGroups = (
+				8257B141305CB11300C8CB3D /* ShieldConfigurationExtension */,
+			);
+			name = ShieldConfigurationExtension;
+			productName = ShieldConfigurationExtension;
+			productReference = 8257B13B305CB11300C8CB3D /* ShieldConfigurationExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		8257B151305CB13B00C8CB3D /* ShieldActionExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8257B15D305CB13B00C8CB3D /* Build configuration list for PBXNativeTarget "ShieldActionExtension" */;
+			buildPhases = (
+				8257B14E305CB13B00C8CB3D /* Sources */,
+				8257B14F305CB13B00C8CB3D /* Frameworks */,
+				8257B150305CB13B00C8CB3D /* Resources */,
+			);
+			buildRules = (
+			);
+			fileSystemSynchronizedGroups = (
+				8257B154305CB13B00C8CB3D /* ShieldActionExtension */,
+			);
+			name = ShieldActionExtension;
+			productName = ShieldActionExtension;
+			productReference = 8257B152305CB13B00C8CB3D /* ShieldActionExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -71,11 +214,17 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2630;
+				LastSwiftUpdateCheck = 2700;
 				LastUpgradeCheck = 2700;
 				TargetAttributes = {
 					000000000000000100000000 = {
 						CreatedOnToolsVersion = 26.3;
+					};
+					8257B13A305CB11300C8CB3D = {
+						CreatedOnToolsVersion = 27.0;
+					};
+					8257B151305CB13B00C8CB3D = {
+						CreatedOnToolsVersion = 27.0;
 					};
 				};
 			};
@@ -94,12 +243,24 @@
 			projectRoot = "";
 			targets = (
 				000000000000000100000000 /* FocusUpSpike */,
+				8257B13A305CB11300C8CB3D /* ShieldConfigurationExtension */,
+				8257B151305CB13B00C8CB3D /* ShieldActionExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		000000000000000140000000 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		8257B139305CB11300C8CB3D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		8257B150305CB13B00C8CB3D /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
 			);
@@ -112,7 +273,30 @@
 			files = (
 			);
 		};
+		8257B137305CB11300C8CB3D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
+		8257B14E305CB13B00C8CB3D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		8257B147305CB11300C8CB3D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 8257B13A305CB11300C8CB3D /* ShieldConfigurationExtension */;
+			targetProxy = 8257B146305CB11300C8CB3D /* PBXContainerItemProxy */;
+		};
+		8257B15A305CB13B00C8CB3D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 8257B151305CB13B00C8CB3D /* ShieldActionExtension */;
+			targetProxy = 8257B159305CB13B00C8CB3D /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		000000000000000011000000 /* Debug configuration for PBXProject "FocusUpSpike" */ = {
@@ -325,6 +509,132 @@
 			};
 			name = Release;
 		};
+		8257B14A305CB11300C8CB3D /* Debug configuration for PBXNativeTarget "ShieldConfigurationExtension" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ShieldConfigurationExtension/ShieldConfigurationExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6KZ2Y5MG5M;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ShieldConfigurationExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ShieldConfigurationExtension;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.scottgray.FocusUpSpike.ShieldConfigurationExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		8257B14B305CB11300C8CB3D /* Release configuration for PBXNativeTarget "ShieldConfigurationExtension" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ShieldConfigurationExtension/ShieldConfigurationExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6KZ2Y5MG5M;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ShieldConfigurationExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ShieldConfigurationExtension;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.scottgray.FocusUpSpike.ShieldConfigurationExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		8257B15E305CB13B00C8CB3D /* Debug configuration for PBXNativeTarget "ShieldActionExtension" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ShieldActionExtension/ShieldActionExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6KZ2Y5MG5M;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ShieldActionExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ShieldActionExtension;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.scottgray.FocusUpSpike.ShieldActionExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		8257B15F305CB13B00C8CB3D /* Release configuration for PBXNativeTarget "ShieldActionExtension" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ShieldActionExtension/ShieldActionExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6KZ2Y5MG5M;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ShieldActionExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ShieldActionExtension;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.scottgray.FocusUpSpike.ShieldActionExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -341,6 +651,22 @@
 			buildConfigurations = (
 				000000000000000111000000 /* Debug configuration for PBXNativeTarget "FocusUpSpike" */,
 				000000000000000112000000 /* Release configuration for PBXNativeTarget "FocusUpSpike" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		8257B14D305CB11300C8CB3D /* Build configuration list for PBXNativeTarget "ShieldConfigurationExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8257B14A305CB11300C8CB3D /* Debug configuration for PBXNativeTarget "ShieldConfigurationExtension" */,
+				8257B14B305CB11300C8CB3D /* Release configuration for PBXNativeTarget "ShieldConfigurationExtension" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		8257B15D305CB13B00C8CB3D /* Build configuration list for PBXNativeTarget "ShieldActionExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8257B15E305CB13B00C8CB3D /* Debug configuration for PBXNativeTarget "ShieldActionExtension" */,
+				8257B15F305CB13B00C8CB3D /* Release configuration for PBXNativeTarget "ShieldActionExtension" */,
 			);
 			defaultConfigurationName = Release;
 		};
