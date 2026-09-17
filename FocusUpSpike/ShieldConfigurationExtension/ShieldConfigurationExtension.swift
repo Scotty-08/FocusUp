@@ -21,9 +21,9 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
             backgroundColor: UIColor.black,
             title: ShieldConfiguration.Label(text: "Not Yet", color: .white),
             subtitle: ShieldConfiguration.Label(text: goalText, color: UIColor.lightGray),
-            primaryButtonLabel: ShieldConfiguration.Label(text: "Close", color: .white),
-            primaryButtonBackgroundColor: UIColor.systemRed,
-            secondaryButtonLabel: ShieldConfiguration.Label(text: "Override — I finished it", color: UIColor.systemOrange)
+            primaryButtonLabel: ShieldConfiguration.Label(text: "Ignore", color: .white),
+            primaryButtonBackgroundColor: UIColor.darkGray,
+            secondaryButtonLabel: ShieldConfiguration.Label(text: "I finished it — Unlock", color: UIColor.systemGreen)
         )
     }
 

@@ -25,6 +25,8 @@ final class FamilyControlsManager: ObservableObject {
     @Published var isShielded = false
     @Published var lastError: String?
     @Published var goalText: String = ""
+    @Published var completedCount: Int = 0
+    @Published var ignoreCount: Int = 0
 
     private init() {
         authorizationStatus = center.authorizationStatus
@@ -43,6 +45,11 @@ final class FamilyControlsManager: ObservableObject {
 
     func refreshAuthorizationStatus() {
         authorizationStatus = center.authorizationStatus
+    }
+
+    func refreshStats() {
+        completedCount = StatsStore.completedCount
+        ignoreCount = StatsStore.ignoreCount
     }
 
     func applyShield() {
