@@ -24,6 +24,7 @@ final class FamilyControlsManager: ObservableObject {
     // enforcement" -- actually tapping the app on-device is the real check.
     @Published var isShielded = false
     @Published var lastError: String?
+    @Published var goalText: String = ""
 
     private init() {
         authorizationStatus = center.authorizationStatus
@@ -49,6 +50,9 @@ final class FamilyControlsManager: ObservableObject {
             lastError = "Select at least one app first."
             return
         }
+        let trimmedGoal = goalText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = trimmedGoal.isEmpty ? "Finish your focus task in FocusUp to unlock this app." : trimmedGoal
+        GoalStore.setGoal(text, for: selection.applicationTokens)
         store.shield.applications = selection.applicationTokens
         isShielded = true
         lastError = nil

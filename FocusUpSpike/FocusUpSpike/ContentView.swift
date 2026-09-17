@@ -51,6 +51,22 @@ struct ContentView: View {
                         }
                     }
 
+                    if !manager.selection.applicationTokens.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Task to unlock these apps:")
+                                .foregroundStyle(.gray)
+                            TextField("e.g. Apply to 3 internships", text: $manager.goalText)
+                                .textFieldStyle(.plain)
+                                .padding(12)
+                                .background(Color(white: 0.15))
+                                .foregroundStyle(.white)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                            Text("Shown on the block screen. \"Override\" lets the user skip it without proof (self-reported, per spec default).")
+                                .font(.caption2)
+                                .foregroundStyle(.gray)
+                        }
+                    }
+
                     HStack(spacing: 16) {
                         Button {
                             manager.applyShield()
