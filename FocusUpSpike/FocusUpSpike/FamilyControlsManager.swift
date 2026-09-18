@@ -27,10 +27,14 @@ final class FamilyControlsManager: ObservableObject {
     @Published var goalText: String = ""
     @Published var completedCount: Int = 0
     @Published var ignoreCount: Int = 0
+    @Published var currentStreak: Int = 0
+    @Published var justCompletedStreak: Int?
+    private var lastKnownCompletedCount: Int = 0
 
     private init() {
         authorizationStatus = center.authorizationStatus
         loadSelection()
+        lastKnownCompletedCount = StatsStore.completedCount
     }
 
     func requestAuthorization() async {
@@ -48,8 +52,19 @@ final class FamilyControlsManager: ObservableObject {
     }
 
     func refreshStats() {
-        completedCount = StatsStore.completedCount
+        let newCompleted = StatsStore.completedCount
+        let newStreak = StatsStore.currentStreak
+        if newCompleted > lastKnownCompletedCount {
+            justCompletedStreak = newStreak
+        }
+        lastKnownCompletedCount = newCompleted
+        completedCount = newCompleted
         ignoreCount = StatsStore.ignoreCount
+        currentStreak = newStreak
+    }
+
+    func dismissStreakAnimation() {
+        justCompletedStreak = nil
     }
 
     func applyShield() {
