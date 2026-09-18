@@ -113,6 +113,38 @@ struct ContentView: View {
 
                     Divider().background(Color.gray)
 
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Periodic check-ins")
+                            .foregroundStyle(.gray)
+
+                        Picker("Check-in every", selection: $manager.checkInIntervalMinutes) {
+                            Text("20 min").tag(20)
+                            Text("30 min").tag(30)
+                            Text("1 hr").tag(60)
+                        }
+                        .pickerStyle(.segmented)
+                        .disabled(manager.isPeriodicCheckInActive)
+
+                        Button {
+                            if manager.isPeriodicCheckInActive {
+                                manager.stopPeriodicCheckIns()
+                            } else {
+                                manager.startPeriodicCheckIns()
+                            }
+                        } label: {
+                            Text(manager.isPeriodicCheckInActive ? "Stop Check-Ins" : "Start Check-Ins Every \(manager.checkInIntervalMinutes) min")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(SpikeButtonStyle(color: manager.isPeriodicCheckInActive ? .gray : .purple))
+                        .disabled(manager.selection.applicationTokens.isEmpty)
+
+                        Text("Re-shows the block screen after this many minutes of actual use of the selected app(s) -- not wall-clock time regardless of use. New today, needs on-device verification.")
+                            .font(.caption2)
+                            .foregroundStyle(.gray)
+                    }
+
+                    Divider().background(Color.gray)
+
                     statusRow(label: "Finished it (unlocked)", value: "\(manager.completedCount)")
                     statusRow(label: "Ignored (gave in anyway)", value: "\(manager.ignoreCount)")
                     statusRow(label: "Current streak 🔥", value: "\(manager.currentStreak)")

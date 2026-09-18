@@ -1,6 +1,7 @@
 import Foundation
 import FamilyControls
 import ManagedSettings
+import DeviceActivity
 import Combine
 
 /// Owns the one fixed ManagedSettingsStore identity for this spike.
@@ -14,8 +15,7 @@ final class FamilyControlsManager: ObservableObject {
 
     private let store = ManagedSettingsStore(named: FamilyControlsManager.storeName)
     private let center = AuthorizationCenter.shared
-    private let defaults = UserDefaults.standard
-    private let selectionKey = "focusUpSpike.selection"
+    private let activityCenter = DeviceActivityCenter()
 
     @Published var authorizationStatus: AuthorizationStatus = .notDetermined
     @Published var selection = FamilyActivitySelection()
@@ -29,6 +29,8 @@ final class FamilyControlsManager: ObservableObject {
     @Published var ignoreCount: Int = 0
     @Published var currentStreak: Int = 0
     @Published var justCompletedStreak: Int?
+    @Published var checkInIntervalMinutes: Int = 30
+    @Published var isPeriodicCheckInActive = false
     private var lastKnownCompletedCount: Int = 0
 
     private init() {
@@ -86,13 +88,54 @@ final class FamilyControlsManager: ObservableObject {
     }
 
     func saveSelection() {
-        guard let data = try? JSONEncoder().encode(selection) else { return }
-        defaults.set(data, forKey: selectionKey)
+        SelectionStore.save(selection)
     }
 
     private func loadSelection() {
-        guard let data = defaults.data(forKey: selectionKey),
-              let saved = try? JSONDecoder().decode(FamilyActivitySelection.self, from: data) else { return }
+        guard let saved = SelectionStore.load() else { return }
         selection = saved
+    }
+
+    /// Registers a stack of cumulative-usage thresholds (see
+    /// FocusUpActivity) so the DeviceActivityMonitor extension re-shows
+    /// the block screen roughly every `checkInIntervalMinutes` of actual
+    /// use of the selected app(s), even mid-session. New today --
+    /// reliability needs on-device verification.
+    func startPeriodicCheckIns() {
+        guard !selection.applicationTokens.isEmpty else {
+            lastError = "Select at least one app first."
+            return
+        }
+        SelectionStore.save(selection)
+
+        let marks = FocusUpActivity.minuteMarks(interval: checkInIntervalMinutes)
+        var events: [DeviceActivityEvent.Name: DeviceActivityEvent] = [:]
+        for minute in marks {
+            events[FocusUpActivity.eventName(forMinuteMark: minute)] = DeviceActivityEvent(
+                applications: selection.applicationTokens,
+                threshold: DateComponents(minute: minute)
+            )
+        }
+
+        let schedule = DeviceActivitySchedule(
+            intervalStart: DateComponents(hour: 0, minute: 0, second: 0),
+            intervalEnd: DateComponents(hour: 23, minute: 59, second: 59),
+            repeats: true
+        )
+
+        activityCenter.stopMonitoring([FocusUpActivity.name])
+        do {
+            try activityCenter.startMonitoring(FocusUpActivity.name, during: schedule, events: events)
+            isPeriodicCheckInActive = true
+            lastError = nil
+        } catch {
+            isPeriodicCheckInActive = false
+            lastError = "Couldn't start check-ins: \(error.localizedDescription)"
+        }
+    }
+
+    func stopPeriodicCheckIns() {
+        activityCenter.stopMonitoring([FocusUpActivity.name])
+        isPeriodicCheckInActive = false
     }
 }
