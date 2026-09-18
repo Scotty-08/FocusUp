@@ -4,6 +4,7 @@ import ManagedSettingsUI
 
 struct ContentView: View {
     @StateObject private var manager = FamilyControlsManager.shared
+    @StateObject private var auth = AuthManager.shared
     @State private var isPickerPresented = false
     @Environment(\.scenePhase) private var scenePhase
 
@@ -12,9 +13,24 @@ struct ContentView: View {
             Color.black.ignoresSafeArea()
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    Text("FocusUp — Platform Spike")
-                        .font(.title2.bold())
-                        .foregroundStyle(.white)
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("FocusUp — Platform Spike")
+                                .font(.title2.bold())
+                                .foregroundStyle(.white)
+                            if let name = auth.displayName, !name.isEmpty {
+                                Text("Signed in as \(name)")
+                                    .font(.caption2)
+                                    .foregroundStyle(.gray)
+                            }
+                        }
+                        Spacer()
+                        Button("Sign Out") {
+                            auth.signOut()
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.gray)
+                    }
 
                     statusRow(label: "Screen Time authorization", value: authorizationLabel)
 

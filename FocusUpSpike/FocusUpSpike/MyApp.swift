@@ -1,9 +1,15 @@
 import SwiftUI
 
 @main struct MyApp: App {
+    @StateObject private var auth = AuthManager.shared
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            if auth.isSignedIn {
+                ContentView()
+            } else {
+                AuthView()
+            }
         }
     }
 }
