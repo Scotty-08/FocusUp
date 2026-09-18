@@ -32,9 +32,28 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
             .withTintColor(cyan, renderingMode: .alwaysOriginal)
     }()
 
+    // Small pool of "System"-styled headlines so the shield doesn't
+    // feel static every time it's seen. Picked by day of year -- stable
+    // across repeated views in one day/testing session, but rotates
+    // day to day. Only the title rotates; goal text, streak, and the
+    // button labels stay put since those carry real information.
+    private static let titlePool = ["Sealed", "Contained", "Restricted", "Bound"]
+    private static var rotatingTitle: String {
+        let dayOfYear = Calendar.current.ordinality(of: .day, in: .year, for: Date()) ?? 0
+        return titlePool[dayOfYear % titlePool.count]
+    }
+
+    // A saved goal text shorter than this reads as broken/truncated on
+    // the shield (e.g. a task title saved mid-typing) rather than
+    // intentional, so it falls back to the generic message instead of
+    // showing something confusing like just "The".
+    private static let minGoalTextLength = 4
+
     override func configuration(shielding application: Application) -> ShieldConfiguration {
-        let goalText = application.token.flatMap { GoalStore.goal(for: $0) }
-            ?? "Finish your focus task in FocusUp to unlock this app."
+        let defaultGoalText = "Finish your focus task in FocusUp to unlock this app."
+        let savedGoal = application.token.flatMap { GoalStore.goal(for: $0) }?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let goalText = (savedGoal?.count ?? 0) >= Self.minGoalTextLength ? savedGoal! : defaultGoalText
         let streak = StatsStore.currentStreak
         let streakLine = streak > 0 ? "Streak: \(streak) day\(streak == 1 ? "" : "s")" : "Start a new streak"
         let subtitleText = "\(goalText)\n\(streakLine)"
@@ -42,7 +61,7 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
         return ShieldConfiguration(
             backgroundColor: Self.bg,
             icon: Self.brandIcon,
-            title: ShieldConfiguration.Label(text: "Sealed", color: Self.textPrimary),
+            title: ShieldConfiguration.Label(text: Self.rotatingTitle, color: Self.textPrimary),
             subtitle: ShieldConfiguration.Label(text: subtitleText, color: Self.textMuted),
             primaryButtonLabel: ShieldConfiguration.Label(text: "Abandon", color: Self.textPrimary),
             primaryButtonBackgroundColor: Self.panelDark,
