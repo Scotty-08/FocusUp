@@ -171,6 +171,7 @@ struct HomeView: View {
             manager.refreshStats()
             manager.refreshTasks()
             syncIntervalTextFromManager()
+            manager.requestNotificationPermission()
             if manager.authorizationStatus == .notDetermined {
                 Task { await manager.requestAuthorization() }
             }

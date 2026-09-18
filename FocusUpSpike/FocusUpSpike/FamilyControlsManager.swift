@@ -2,6 +2,7 @@ import Foundation
 import FamilyControls
 import ManagedSettings
 import DeviceActivity
+import UserNotifications
 import Combine
 
 /// Owns the one fixed ManagedSettingsStore identity for this spike.
@@ -58,6 +59,14 @@ final class FamilyControlsManager: ObservableObject {
 
     func refreshAuthorizationStatus() {
         authorizationStatus = center.authorizationStatus
+    }
+
+    /// So the "I finished it" shield button can notify its way back into
+    /// the app (extensions can't open the host app directly -- see
+    /// ShieldActionExtension). Safe to call repeatedly; the system only
+    /// prompts once.
+    func requestNotificationPermission() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
 
     func refreshStats() {

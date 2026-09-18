@@ -4,6 +4,7 @@
 //
 
 import ManagedSettings
+import UserNotifications
 
 /// Handles taps on the shield overlay's two buttons.
 ///
@@ -22,6 +23,14 @@ import ManagedSettings
 /// difference today is which counter moves. A real distinction (e.g.
 /// ignore counts against a streak, completion doesn't) is a product
 /// decision for the full app, not something decided here.
+///
+/// Note on "why a notification": this extension runs in its own process
+/// and Apple's SDK marks UIApplication.shared (and any way to open/
+/// foreground the host app) unavailable to extensions -- there is no
+/// supported way to jump the user back into FocusUp directly from here.
+/// A local notification is the closest equivalent: tapping IT is a real
+/// user action, so iOS is allowed to launch FocusUp from that tap, and
+/// by then the streak/completed-task state is already saved and waiting.
 class ShieldActionExtension: ShieldActionDelegate {
     override func handle(action: ShieldAction, for application: ApplicationToken, completionHandler: @escaping (ShieldActionResponse) -> Void) {
         let store = ManagedSettingsStore(named: FocusUpShared.storeName)
@@ -40,6 +49,7 @@ class ShieldActionExtension: ShieldActionDelegate {
             GoalStore.removeGoal(for: application)
             StatsStore.recordCompleted()
             TaskStore.markActiveTaskCompleted()
+            scheduleFinishedNotification()
             completionHandler(.close)
         @unknown default:
             completionHandler(.close)
@@ -52,5 +62,19 @@ class ShieldActionExtension: ShieldActionDelegate {
 
     override func handle(action: ShieldAction, for category: ActivityCategoryToken, completionHandler: @escaping (ShieldActionResponse) -> Void) {
         completionHandler(.close)
+    }
+
+    /// Fires immediately so tapping it is the fastest path back into
+    /// FocusUp -- tapping opens the app, which refreshes stats/tasks on
+    /// appear and shows the streak animation + checked-off task right away.
+    /// Does nothing (silently) if the user never granted notification
+    /// permission -- requested from the main app, see FamilyControlsManager.
+    private func scheduleFinishedNotification() {
+        let content = UNMutableNotificationContent()
+        content.title = "Task complete 🔥"
+        content.body = "Tap to jump back into FocusUp and see your streak."
+        content.sound = .default
+        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request)
     }
 }
