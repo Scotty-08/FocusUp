@@ -24,7 +24,8 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
     override func eventDidReachThreshold(_ event: DeviceActivityEvent.Name, activity: DeviceActivityName) {
         super.eventDidReachThreshold(event, activity: activity)
 
-        guard activity == FocusUpActivity.name,
+        guard UserDefaults(suiteName: FocusUpShared.appGroupID)?.bool(forKey: "focusUp.checkInsEnabled") == true,
+              activity == FocusUpActivity.name,
               let selection = SelectionStore.load(),
               !selection.applicationTokens.isEmpty else { return }
 

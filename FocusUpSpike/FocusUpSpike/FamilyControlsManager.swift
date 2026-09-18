@@ -193,9 +193,44 @@ final class FamilyControlsManager: ObservableObject {
     }
 
     func clearShield() {
-        store.shield.applications = nil
-        isShielded = false
         stopPeriodicCheckIns()
+        store.clearAllSettings()
+        isShielded = false
+    }
+
+    /// End actions are synchronous on MainActor, preventing overlapping taps.
+    /// Read-back verifies our store, not restrictions imposed by other apps.
+    func finishQuest(expectedID: UUID?) -> Bool {
+        refreshTasks()
+        guard let expectedID, let task = activeTask,
+              task.id == expectedID, !task.isCompleted else {
+            lastError = "Your active quest changed. Review it and try again."
+            return false
+        }
+        guard releaseQuestRestrictions() else { return false }
+        TaskStore.markActiveTaskCompleted()
+        StatsStore.recordCompleted(questTitle: task.title)
+        refreshTasks()
+        refreshStats()
+        return true
+    }
+
+    func endQuestEarly() -> Bool {
+        guard releaseQuestRestrictions() else { return false }
+        StatsStore.recordIgnore()
+        refreshStats()
+        return true
+    }
+
+    private func releaseQuestRestrictions() -> Bool {
+        clearShield()
+        guard store.shield.applications?.isEmpty != false else {
+            isShielded = true
+            lastError = "FocusUp still has restrictions. Please retry ending focus."
+            return false
+        }
+        lastError = nil
+        return true
     }
 
     func saveSelection() {
@@ -238,16 +273,19 @@ final class FamilyControlsManager: ObservableObject {
 
         activityCenter.stopMonitoring([FocusUpActivity.name])
         do {
+            UserDefaults(suiteName: FocusUpShared.appGroupID)?.set(true, forKey: "focusUp.checkInsEnabled")
             try activityCenter.startMonitoring(FocusUpActivity.name, during: schedule, events: events)
             isPeriodicCheckInActive = true
             lastError = nil
         } catch {
+            UserDefaults(suiteName: FocusUpShared.appGroupID)?.set(false, forKey: "focusUp.checkInsEnabled")
             isPeriodicCheckInActive = false
             lastError = "Couldn't start check-ins: \(error.localizedDescription)"
         }
     }
 
     func stopPeriodicCheckIns() {
+        UserDefaults(suiteName: FocusUpShared.appGroupID)?.set(false, forKey: "focusUp.checkInsEnabled")
         activityCenter.stopMonitoring([FocusUpActivity.name])
         isPeriodicCheckInActive = false
     }
