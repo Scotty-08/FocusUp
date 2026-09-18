@@ -29,7 +29,7 @@ final class FamilyControlsManager: ObservableObject {
     @Published var ignoreCount: Int = 0
     @Published var currentStreak: Int = 0
     @Published var justCompletedStreak: Int?
-    @Published var checkInIntervalMinutes: Int = 30
+    @Published var checkInIntervalSeconds: Int = 1800
     @Published var isPeriodicCheckInActive = false
     private var lastKnownCompletedCount: Int = 0
 
@@ -108,12 +108,12 @@ final class FamilyControlsManager: ObservableObject {
         }
         SelectionStore.save(selection)
 
-        let marks = FocusUpActivity.minuteMarks(interval: checkInIntervalMinutes)
+        let marks = FocusUpActivity.marks(intervalSeconds: checkInIntervalSeconds)
         var events: [DeviceActivityEvent.Name: DeviceActivityEvent] = [:]
-        for minute in marks {
-            events[FocusUpActivity.eventName(forMinuteMark: minute)] = DeviceActivityEvent(
+        for mark in marks {
+            events[FocusUpActivity.eventName(forMark: mark)] = DeviceActivityEvent(
                 applications: selection.applicationTokens,
-                threshold: DateComponents(minute: minute)
+                threshold: FocusUpActivity.components(forSeconds: mark)
             )
         }
 

@@ -131,12 +131,30 @@ enum SelectionStore {
 enum FocusUpActivity {
     static let name = DeviceActivityName("focusUp.checkIn")
 
-    static func minuteMarks(interval: Int, upTo maxMinutes: Int = 16 * 60) -> [Int] {
-        guard interval > 0 else { return [] }
-        return Array(stride(from: interval, through: maxMinutes, by: interval))
+    /// Cumulative-usage thresholds (in seconds) at which we re-show the
+    /// block screen. Capped at `maxCount` marks regardless of interval so
+    /// a short demo interval (e.g. 30s) doesn't try to register hundreds
+    /// of events -- Apple has practical limits on event count per
+    /// activity, and this keeps registration well under them.
+    static func marks(intervalSeconds: Int, maxCount: Int = 30) -> [Int] {
+        guard intervalSeconds > 0 else { return [] }
+        return (1...maxCount).map { $0 * intervalSeconds }
     }
 
-    static func eventName(forMinuteMark minute: Int) -> DeviceActivityEvent.Name {
-        DeviceActivityEvent.Name("focusUp.checkIn.\(minute)")
+    static func eventName(forMark seconds: Int) -> DeviceActivityEvent.Name {
+        DeviceActivityEvent.Name("focusUp.checkIn.\(seconds)")
+    }
+
+    /// Converts a raw second count into normalized hour/minute/second
+    /// DateComponents for DeviceActivityEvent's threshold parameter.
+    static func components(forSeconds totalSeconds: Int) -> DateComponents {
+        var c = DateComponents()
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        let seconds = totalSeconds % 60
+        if hours > 0 { c.hour = hours }
+        if minutes > 0 { c.minute = minutes }
+        if seconds > 0 { c.second = seconds }
+        return c
     }
 }

@@ -117,10 +117,11 @@ struct ContentView: View {
                         Text("Periodic check-ins")
                             .foregroundStyle(.gray)
 
-                        Picker("Check-in every", selection: $manager.checkInIntervalMinutes) {
-                            Text("20 min").tag(20)
-                            Text("30 min").tag(30)
-                            Text("1 hr").tag(60)
+                        Picker("Check-in every", selection: $manager.checkInIntervalSeconds) {
+                            Text("Demo (30s)").tag(30)
+                            Text("20 min").tag(1200)
+                            Text("30 min").tag(1800)
+                            Text("1 hr").tag(3600)
                         }
                         .pickerStyle(.segmented)
                         .disabled(manager.isPeriodicCheckInActive)
@@ -132,7 +133,7 @@ struct ContentView: View {
                                 manager.startPeriodicCheckIns()
                             }
                         } label: {
-                            Text(manager.isPeriodicCheckInActive ? "Stop Check-Ins" : "Start Check-Ins Every \(manager.checkInIntervalMinutes) min")
+                            Text(manager.isPeriodicCheckInActive ? "Stop Check-Ins" : "Start Check-Ins Every \(checkInIntervalLabel)")
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(SpikeButtonStyle(color: manager.isPeriodicCheckInActive ? .gray : .purple))
@@ -185,6 +186,14 @@ struct ContentView: View {
                     manager.dismissStreakAnimation()
                 }
             }
+        }
+    }
+
+    private var checkInIntervalLabel: String {
+        switch manager.checkInIntervalSeconds {
+        case 30: return "30s (demo)"
+        case 3600: return "1 hr"
+        default: return "\(manager.checkInIntervalSeconds / 60) min"
         }
     }
 
