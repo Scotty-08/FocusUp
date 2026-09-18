@@ -63,15 +63,18 @@ enum GoalStore {
     }
 }
 
-/// Simple counters for the shield's two exit paths, written from the
-/// ShieldActionExtension process and read back in the main app. Not a
-/// real consecutive-day streak yet -- just running totals -- since real
-/// streak semantics (what breaks one, timezone/day boundaries) is a
-/// product decision, not a plumbing one; flagging that rather than
-/// guessing at it.
+/// Counters for the shield's two exit paths, written from the
+/// ShieldActionExtension process and read back in the main app.
+///
+/// currentStreak is a SESSION streak, not a calendar-day streak like
+/// Duolingo's: it counts consecutive "I finished it" taps with no
+/// "Ignore" in between, and resets to 0 on any Ignore. A real
+/// day-based streak (what counts as a day, timezones, grace periods)
+/// is a product decision, not plumbing -- flagged, not guessed at.
 enum StatsStore {
     private static let ignoreKey = "focusUp.ignoreCount"
     private static let completedKey = "focusUp.completedCount"
+    private static let streakKey = "focusUp.currentStreak"
 
     private static var defaults: UserDefaults? {
         UserDefaults(suiteName: FocusUpShared.appGroupID)
@@ -79,12 +82,15 @@ enum StatsStore {
 
     static var ignoreCount: Int { defaults?.integer(forKey: ignoreKey) ?? 0 }
     static var completedCount: Int { defaults?.integer(forKey: completedKey) ?? 0 }
+    static var currentStreak: Int { defaults?.integer(forKey: streakKey) ?? 0 }
 
     static func recordIgnore() {
         defaults?.set(ignoreCount + 1, forKey: ignoreKey)
+        defaults?.set(0, forKey: streakKey)
     }
 
     static func recordCompleted() {
         defaults?.set(completedCount + 1, forKey: completedKey)
+        defaults?.set(currentStreak + 1, forKey: streakKey)
     }
 }

@@ -115,6 +115,7 @@ struct ContentView: View {
 
                     statusRow(label: "Finished it (unlocked)", value: "\(manager.completedCount)")
                     statusRow(label: "Ignored (gave in anyway)", value: "\(manager.ignoreCount)")
+                    statusRow(label: "Current streak 🔥", value: "\(manager.currentStreak)")
                     Text("Updates when you come back to FocusUp after hitting a block screen.")
                         .font(.caption2)
                         .foregroundStyle(.gray)
@@ -144,6 +145,13 @@ struct ContentView: View {
             if newPhase == .active {
                 manager.refreshAuthorizationStatus()
                 manager.refreshStats()
+            }
+        }
+        .overlay {
+            if let streak = manager.justCompletedStreak {
+                StreakCelebrationView(streak: streak) {
+                    manager.dismissStreakAnimation()
+                }
             }
         }
     }
