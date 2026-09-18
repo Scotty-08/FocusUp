@@ -7,8 +7,8 @@ struct HomeView: View {
     @StateObject private var auth = AuthManager.shared
     @State private var isPickerPresented = false
     @Environment(\.scenePhase) private var scenePhase
-    @State private var useDemoInterval = false
-    @State private var customMinutes = 30
+    @State private var intervalHoursText = "0"
+    @State private var intervalMinutesText = "30"
 
     var body: some View {
         ZStack {
@@ -75,31 +75,50 @@ struct HomeView: View {
                         }
                     }
 
+                    // Note: the active task is picked from the Tasks tab now, not shown here.
+
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Task to unlock these apps:")
+                        Text("Periodic check-ins")
                             .foregroundStyle(.gray)
-                        if let active = manager.activeTask {
-                            HStack {
-                                Text(active.title)
-                                    .foregroundStyle(.white)
-                                    .bold()
-                                Spacer()
-                            }
-                            .padding(12)
-                            .background(Color(white: 0.15))
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                        } else {
-                            Text("No task chosen yet.")
-                                .foregroundStyle(.orange)
-                                .font(.footnote)
-                        }
-                        NavigationLink("Choose Task →") {
-                            TasksView()
-                        }
-                        .font(.footnote)
-                        Text("Shown on the block screen. \"Override\" lets the user skip it without proof (self-reported, per spec default).")
+
+                        Text("Re-shows the block screen after this much actual use of the selected app(s) -- not wall-clock time. Starts automatically when you apply the shield below, and stops when you clear it.")
                             .font(.caption2)
                             .foregroundStyle(.gray)
+
+                        HStack(alignment: .bottom, spacing: 12) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Hours").font(.caption2).foregroundStyle(.gray)
+                                TextField("0", text: $intervalHoursText)
+                                    .keyboardType(.numberPad)
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(width: 60)
+                                    .disabled(manager.isPeriodicCheckInActive)
+                                    .onChange(of: intervalHoursText) { _, _ in updateIntervalFromText() }
+                            }
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Minutes").font(.caption2).foregroundStyle(.gray)
+                                TextField("30", text: $intervalMinutesText)
+                                    .keyboardType(.numberPad)
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(width: 60)
+                                    .disabled(manager.isPeriodicCheckInActive)
+                                    .onChange(of: intervalMinutesText) { _, _ in updateIntervalFromText() }
+                            }
+                            Button {
+                                intervalHoursText = "0"
+                                intervalMinutesText = "0"
+                                updateIntervalFromText()
+                            } label: {
+                                Text("Quick 30s (demo)")
+                                    .font(.caption)
+                            }
+                            .disabled(manager.isPeriodicCheckInActive)
+                            Spacer()
+                        }
+
+                        Text(manager.isPeriodicCheckInActive ? "Active — checking in every \(checkInIntervalLabel)." : "Will check in every \(checkInIntervalLabel) once the shield is applied.")
+                            .font(.caption2)
+                            .foregroundStyle(manager.isPeriodicCheckInActive ? .green : .gray)
                     }
 
                     HStack(spacing: 16) {
@@ -123,48 +142,6 @@ struct HomeView: View {
                     }
 
                     statusRow(label: "Shield requested", value: manager.isShielded ? "ON — verify on device" : "OFF")
-
-                    Divider().background(Color.gray)
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Periodic check-ins")
-                            .foregroundStyle(.gray)
-
-                        Toggle("Use 30s demo interval", isOn: $useDemoInterval)
-                            .foregroundStyle(.white)
-                            .disabled(manager.isPeriodicCheckInActive)
-                            .onChange(of: useDemoInterval) { _, isDemo in
-                                manager.checkInIntervalSeconds = isDemo ? 30 : customMinutes * 60
-                            }
-
-                        Stepper(value: $customMinutes, in: 1...240) {
-                            Text("Custom interval: \(customMinutes) min")
-                                .foregroundStyle(.white)
-                        }
-                        .disabled(manager.isPeriodicCheckInActive || useDemoInterval)
-                        .onChange(of: customMinutes) { _, minutes in
-                            if !useDemoInterval {
-                                manager.checkInIntervalSeconds = minutes * 60
-                            }
-                        }
-
-                        Button {
-                            if manager.isPeriodicCheckInActive {
-                                manager.stopPeriodicCheckIns()
-                            } else {
-                                manager.startPeriodicCheckIns()
-                            }
-                        } label: {
-                            Text(manager.isPeriodicCheckInActive ? "Stop Check-Ins" : "Start Check-Ins Every \(checkInIntervalLabel)")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(SpikeButtonStyle(color: manager.isPeriodicCheckInActive ? .gray : .purple))
-                        .disabled(manager.selection.applicationTokens.isEmpty)
-
-                        Text("Re-shows the block screen after this much actual use of the selected app(s) -- not wall-clock time regardless of use. New today, needs on-device verification.")
-                            .font(.caption2)
-                            .foregroundStyle(.gray)
-                    }
 
                     Divider().background(Color.gray)
 
@@ -193,6 +170,7 @@ struct HomeView: View {
             manager.refreshAuthorizationStatus()
             manager.refreshStats()
             manager.refreshTasks()
+            syncIntervalTextFromManager()
             if manager.authorizationStatus == .notDetermined {
                 Task { await manager.requestAuthorization() }
             }
@@ -210,6 +188,24 @@ struct HomeView: View {
                     manager.dismissStreakAnimation()
                 }
             }
+        }
+    }
+
+    private func updateIntervalFromText() {
+        let hours = Int(intervalHoursText) ?? 0
+        let minutes = Int(intervalMinutesText) ?? 0
+        let total = (hours * 3600) + (minutes * 60)
+        manager.checkInIntervalSeconds = max(total, 30)
+    }
+
+    private func syncIntervalTextFromManager() {
+        let seconds = manager.checkInIntervalSeconds
+        if seconds == 30 {
+            intervalHoursText = "0"
+            intervalMinutesText = "0"
+        } else {
+            intervalHoursText = "\(seconds / 3600)"
+            intervalMinutesText = "\((seconds % 3600) / 60)"
         }
     }
 
