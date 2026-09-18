@@ -47,7 +47,11 @@ class ShieldActionExtension: ShieldActionDelegate {
             apps.remove(application)
             store.shield.applications = apps
             GoalStore.removeGoal(for: application)
-            StatsStore.recordCompleted()
+            // Capture the quest title BEFORE markActiveTaskCompleted() advances
+            // the active task to the next one -- otherwise by the time the app
+            // reads this back, it'd show the *next* quest, not the one just cleared.
+            let clearedQuestTitle = TaskStore.activeTask?.title
+            StatsStore.recordCompleted(questTitle: clearedQuestTitle)
             TaskStore.markActiveTaskCompleted()
             scheduleFinishedNotification()
             completionHandler(.close)

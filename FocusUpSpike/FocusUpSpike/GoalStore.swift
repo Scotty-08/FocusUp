@@ -77,6 +77,7 @@ enum StatsStore {
     private static let ignoreKey = "focusUp.ignoreCount"
     private static let completedKey = "focusUp.completedCount"
     private static let streakKey = "focusUp.currentStreak"
+    private static let lastClearedQuestTitleKey = "focusUp.lastClearedQuestTitle"
 
     private static var defaults: UserDefaults? {
         UserDefaults(suiteName: FocusUpShared.appGroupID)
@@ -86,14 +87,24 @@ enum StatsStore {
     static var completedCount: Int { defaults?.integer(forKey: completedKey) ?? 0 }
     static var currentStreak: Int { defaults?.integer(forKey: streakKey) ?? 0 }
 
+    /// The title of whichever quest was active at the moment "Clear Quest
+    /// — Unlock" was tapped, captured by ShieldActionExtension BEFORE it
+    /// advances the active task to the next one. Lets the in-app
+    /// celebration screen say what was actually just cleared, instead of
+    /// whatever quest happens to be active by the time the user returns.
+    static var lastClearedQuestTitle: String? { defaults?.string(forKey: lastClearedQuestTitleKey) }
+
     static func recordIgnore() {
         defaults?.set(ignoreCount + 1, forKey: ignoreKey)
         defaults?.set(0, forKey: streakKey)
     }
 
-    static func recordCompleted() {
+    static func recordCompleted(questTitle: String?) {
         defaults?.set(completedCount + 1, forKey: completedKey)
         defaults?.set(currentStreak + 1, forKey: streakKey)
+        if let questTitle {
+            defaults?.set(questTitle, forKey: lastClearedQuestTitleKey)
+        }
     }
 }
 

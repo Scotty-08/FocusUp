@@ -29,6 +29,7 @@ final class FamilyControlsManager: ObservableObject {
     @Published var ignoreCount: Int = 0
     @Published var currentStreak: Int = 0
     @Published var justCompletedStreak: Int?
+    @Published var justClearedQuestTitle: String?
     @Published var checkInIntervalSeconds: Int = 1800
     @Published var isPeriodicCheckInActive = false
     @Published var tasks: [FocusTask] = []
@@ -74,6 +75,7 @@ final class FamilyControlsManager: ObservableObject {
         let newStreak = StatsStore.currentStreak
         if newCompleted > lastKnownCompletedCount {
             justCompletedStreak = newStreak
+            justClearedQuestTitle = StatsStore.lastClearedQuestTitle
         }
         lastKnownCompletedCount = newCompleted
         completedCount = newCompleted
@@ -83,6 +85,7 @@ final class FamilyControlsManager: ObservableObject {
 
     func dismissStreakAnimation() {
         justCompletedStreak = nil
+        justClearedQuestTitle = nil
     }
 
     // MARK: - Tasks
