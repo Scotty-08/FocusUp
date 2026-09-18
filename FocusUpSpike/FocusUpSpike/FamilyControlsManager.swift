@@ -125,6 +125,9 @@ final class FamilyControlsManager: ObservableObject {
 
     // MARK: - Shield
 
+    /// Applying the shield also starts the periodic check-in loop using
+    /// whatever interval is currently configured -- per Scott, these
+    /// shouldn't be two separate actions the user has to remember to hit.
     func applyShield() {
         guard !selection.applicationTokens.isEmpty else {
             lastError = "Select at least one app first."
@@ -135,11 +138,13 @@ final class FamilyControlsManager: ObservableObject {
         store.shield.applications = selection.applicationTokens
         isShielded = true
         lastError = nil
+        startPeriodicCheckIns()
     }
 
     func clearShield() {
         store.shield.applications = nil
         isShielded = false
+        stopPeriodicCheckIns()
     }
 
     func saveSelection() {
