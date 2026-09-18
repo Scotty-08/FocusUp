@@ -200,6 +200,44 @@ private struct Ember: View {
     }
 }
 
+/// Expanding cyan "scan" rings -- the System's answer to FireAura's warm
+/// flicker/embers, used on the System Check-In screen. A routine re-seal
+/// is not a payoff, so this deliberately stays in the everyday cyan
+/// palette rather than borrowing gold (see HunterTheme's color-system
+/// rule: gold is reserved for the streak/level-up moment only).
+struct SystemPulse: View {
+    var diameter: CGFloat = 110
+    @State private var pulse = false
+
+    var body: some View {
+        ZStack {
+            ForEach(0..<3, id: \.self) { i in
+                Circle()
+                    .strokeBorder(HunterTheme.cyan.opacity(pulse ? 0 : 0.55), lineWidth: 2)
+                    .frame(width: diameter, height: diameter)
+                    .scaleEffect(pulse ? 1.6 : 0.7)
+                    .animation(
+                        .easeOut(duration: 1.8)
+                            .repeatForever(autoreverses: false)
+                            .delay(Double(i) * 0.5),
+                        value: pulse
+                    )
+            }
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [HunterTheme.cyan.opacity(0.35), .clear],
+                        center: .center, startRadius: 0, endRadius: diameter / 2
+                    )
+                )
+                .frame(width: diameter, height: diameter)
+                .blur(radius: 2)
+        }
+        .onAppear { pulse = true }
+        .allowsHitTesting(false)
+    }
+}
+
 /// Chunky segmented bar -- SwiftUI's equivalent of the mockups' striped
 /// CSS "repeating-linear-gradient" bars, used for XP and stats alike.
 struct SegmentedBar: View {

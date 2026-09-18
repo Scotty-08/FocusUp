@@ -78,6 +78,7 @@ enum StatsStore {
     private static let completedKey = "focusUp.completedCount"
     private static let streakKey = "focusUp.currentStreak"
     private static let lastClearedQuestTitleKey = "focusUp.lastClearedQuestTitle"
+    private static let checkInCountKey = "focusUp.checkInCount"
 
     private static var defaults: UserDefaults? {
         UserDefaults(suiteName: FocusUpShared.appGroupID)
@@ -94,6 +95,13 @@ enum StatsStore {
     /// whatever quest happens to be active by the time the user returns.
     static var lastClearedQuestTitle: String? { defaults?.string(forKey: lastClearedQuestTitleKey) }
 
+    /// Bumped once each time DeviceActivityMonitorExtension's periodic
+    /// check-in threshold fires and re-applies the shield mid-session.
+    /// The main app compares this against its own last-seen count (see
+    /// FamilyControlsManager.refreshStats) to know a check-in happened
+    /// while it was away, and shows the System Check-In screen for it.
+    static var checkInCount: Int { defaults?.integer(forKey: checkInCountKey) ?? 0 }
+
     static func recordIgnore() {
         defaults?.set(ignoreCount + 1, forKey: ignoreKey)
         defaults?.set(0, forKey: streakKey)
@@ -105,6 +113,13 @@ enum StatsStore {
         if let questTitle {
             defaults?.set(questTitle, forKey: lastClearedQuestTitleKey)
         }
+    }
+
+    /// Called from DeviceActivityMonitorExtension only -- a routine
+    /// re-seal, not a completion or an ignore, so it deliberately does
+    /// not touch completedCount or currentStreak.
+    static func recordCheckIn() {
+        defaults?.set(checkInCount + 1, forKey: checkInCountKey)
     }
 }
 

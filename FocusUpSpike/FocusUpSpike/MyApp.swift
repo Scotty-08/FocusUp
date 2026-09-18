@@ -6,7 +6,11 @@ import SwiftUI
     var body: some Scene {
         WindowGroup {
             if auth.isSignedIn {
-                ContentView()
+                if auth.hasCompletedOnboarding {
+                    ContentView()
+                } else {
+                    OnboardingView()
+                }
             } else {
                 AuthView()
             }

@@ -30,11 +30,13 @@ final class FamilyControlsManager: ObservableObject {
     @Published var currentStreak: Int = 0
     @Published var justCompletedStreak: Int?
     @Published var justClearedQuestTitle: String?
+    @Published var justCheckedIn = false
     @Published var checkInIntervalSeconds: Int = 1800
     @Published var isPeriodicCheckInActive = false
     @Published var tasks: [FocusTask] = []
     @Published var activeTaskID: UUID?
     private var lastKnownCompletedCount: Int = 0
+    private var lastKnownCheckInCount: Int = 0
 
     var activeTask: FocusTask? {
         guard let id = activeTaskID else { return nil }
@@ -45,6 +47,7 @@ final class FamilyControlsManager: ObservableObject {
         authorizationStatus = center.authorizationStatus
         loadSelection()
         lastKnownCompletedCount = StatsStore.completedCount
+        lastKnownCheckInCount = StatsStore.checkInCount
         refreshTasks()
     }
 
@@ -81,11 +84,26 @@ final class FamilyControlsManager: ObservableObject {
         completedCount = newCompleted
         ignoreCount = StatsStore.ignoreCount
         currentStreak = newStreak
+
+        // Same "compare against last-seen count" pattern as the streak
+        // check above, but deliberately never fires alongside it --
+        // ContentView only shows the check-in screen when a quest
+        // wasn't ALSO just cleared, so the two custom screens never
+        // stack on top of each other.
+        let newCheckInCount = StatsStore.checkInCount
+        if newCheckInCount > lastKnownCheckInCount && justCompletedStreak == nil {
+            justCheckedIn = true
+        }
+        lastKnownCheckInCount = newCheckInCount
     }
 
     func dismissStreakAnimation() {
         justCompletedStreak = nil
         justClearedQuestTitle = nil
+    }
+
+    func dismissCheckIn() {
+        justCheckedIn = false
     }
 
     // MARK: - Tasks
