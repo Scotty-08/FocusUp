@@ -1,15 +1,27 @@
 import SwiftUI
 
 /// Root of the signed-in app. Home / Quests / Hunter tabs.
+///
+/// Also owns the "quest cleared" celebration overlay. It used to live
+/// inside HomeView's own ZStack, which meant it silently never appeared
+/// if the user happened to be on the Quests or Hunter tab when they
+/// tapped back in from the shield notification -- SwiftUI only renders
+/// the currently-selected tab's content. Hoisting it here, above the
+/// TabView itself, means it shows no matter which tab was active.
 struct ContentView: View {
+    @StateObject private var manager = FamilyControlsManager.shared
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var selectedTab = 0
+
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             NavigationStack {
                 HomeView()
             }
             .tabItem {
                 Label("Home", systemImage: "house.fill")
             }
+            .tag(0)
 
             NavigationStack {
                 TasksView()
@@ -17,6 +29,7 @@ struct ContentView: View {
             .tabItem {
                 Label("Quests", systemImage: "checklist")
             }
+            .tag(1)
 
             NavigationStack {
                 CharacterView()
@@ -24,9 +37,28 @@ struct ContentView: View {
             .tabItem {
                 Label("Hunter", systemImage: "person.fill")
             }
+            .tag(2)
         }
         .tint(HunterTheme.cyan)
         .preferredColorScheme(.dark)
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                manager.refreshStats()
+            }
+        }
+        .overlay {
+            if let streak = manager.justCompletedStreak {
+                StreakCelebrationView(
+                    streak: streak,
+                    questTitle: manager.justClearedQuestTitle,
+                    onDismiss: { manager.dismissStreakAnimation() },
+                    onViewQuestLog: {
+                        manager.dismissStreakAnimation()
+                        selectedTab = 1
+                    }
+                )
+            }
+        }
     }
 }
 

@@ -104,13 +104,10 @@ struct HomeView: View {
                 manager.refreshTasks()
             }
         }
-        .overlay {
-            if let streak = manager.justCompletedStreak {
-                StreakCelebrationView(streak: streak) {
-                    manager.dismissStreakAnimation()
-                }
-            }
-        }
+        // The "quest cleared" celebration overlay now lives on ContentView,
+        // above the TabView, so it still shows up if the user was on a
+        // different tab when they tapped back in from the shield
+        // notification -- see ContentView.swift.
     }
 
     private var hunterName: String {
