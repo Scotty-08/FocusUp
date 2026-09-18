@@ -18,14 +18,19 @@ struct ContentView: View {
 
                     statusRow(label: "Screen Time authorization", value: authorizationLabel)
 
-                    Button {
-                        Task { await manager.requestAuthorization() }
-                    } label: {
-                        Text("Request Authorization")
-                            .frame(maxWidth: .infinity)
+                    if manager.authorizationStatus != .approved {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("FocusUp needs Screen Time permission to block apps until your focus tasks are done. This must be approved for FocusUp to work.")
+                                .font(.footnote)
+                                .foregroundStyle(.gray)
+
+                            if manager.authorizationStatus == .denied {
+                                Text("Permission was denied. iOS only asks once — open Settings ▸ Screen Time ▸ FocusUpSpike to turn it on, then relaunch the app.")
+                                    .font(.footnote)
+                                    .foregroundStyle(.orange)
+                            }
+                        }
                     }
-                    .buttonStyle(SpikeButtonStyle(color: .orange))
-                    .disabled(manager.authorizationStatus == .approved)
 
                     Divider().background(Color.gray)
 
@@ -115,6 +120,9 @@ struct ContentView: View {
         .onAppear {
             manager.refreshAuthorizationStatus()
             manager.refreshStats()
+            if manager.authorizationStatus == .notDetermined {
+                Task { await manager.requestAuthorization() }
+            }
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
