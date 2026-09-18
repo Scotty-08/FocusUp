@@ -94,18 +94,29 @@ final class FamilyControlsManager: ObservableObject {
     func refreshTasks() {
         tasks = TaskStore.loadTasks()
         activeTaskID = TaskStore.activeTaskID
+        // Covers first launch (nothing picked yet) and the case where
+        // every task got deleted/finished and new ones were added
+        // elsewhere -- always leave SOME task active if one exists.
+        if activeTaskID == nil {
+            activeTaskID = TaskStore.advanceActiveTask(using: tasks)
+        }
     }
 
-    func addTask(title: String) {
+    /// dueDate is optional -- "none" is a valid, explicit choice, and
+    /// undated tasks are treated as least urgent by the auto-picker.
+    func addTask(title: String, dueDate: Date? = nil) {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         var updated = tasks
-        let newTask = FocusTask(title: trimmed)
+        let newTask = FocusTask(title: trimmed, dueDate: dueDate)
         updated.append(newTask)
         tasks = updated
         TaskStore.saveTasks(updated)
+        // Only auto-pick when nothing is active yet -- an already-active
+        // task (auto-picked or manually overridden) stays put until it's
+        // completed, even if this new task is due sooner.
         if activeTaskID == nil {
-            setActiveTask(newTask.id)
+            activeTaskID = TaskStore.advanceActiveTask(using: updated)
         }
     }
 
@@ -117,19 +128,29 @@ final class FamilyControlsManager: ObservableObject {
         tasks = updated
         TaskStore.saveTasks(updated)
         if let activeTaskID, removedIDs.contains(activeTaskID) {
-            setActiveTask(nil)
+            self.activeTaskID = TaskStore.advanceActiveTask(using: updated)
         }
     }
 
+    /// Checking off the currently-active task from here (not the shield)
+    /// auto-advances the same way the shield's "I finished it" does, so
+    /// the two paths behave identically.
     func toggleTaskCompletion(_ task: FocusTask) {
         guard let idx = tasks.firstIndex(where: { $0.id == task.id }) else { return }
         tasks[idx].isCompleted.toggle()
         TaskStore.saveTasks(tasks)
+        if tasks[idx].isCompleted && activeTaskID == task.id {
+            activeTaskID = TaskStore.advanceActiveTask(using: tasks)
+        }
     }
 
+    /// Manual override: picking a task here always wins over the
+    /// due-date auto-pick, immediately, and it stays active until it's
+    /// completed -- after that, picking goes back to due-date order.
     func setActiveTask(_ id: UUID?) {
         activeTaskID = id
         TaskStore.activeTaskID = id
+        TaskStore.syncShieldGoalTextToActiveTask()
     }
 
     // MARK: - Shield
