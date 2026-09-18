@@ -24,19 +24,26 @@ final class FamilyControlsManager: ObservableObject {
     // enforcement" -- actually tapping the app on-device is the real check.
     @Published var isShielded = false
     @Published var lastError: String?
-    @Published var goalText: String = ""
     @Published var completedCount: Int = 0
     @Published var ignoreCount: Int = 0
     @Published var currentStreak: Int = 0
     @Published var justCompletedStreak: Int?
     @Published var checkInIntervalSeconds: Int = 1800
     @Published var isPeriodicCheckInActive = false
+    @Published var tasks: [FocusTask] = []
+    @Published var activeTaskID: UUID?
     private var lastKnownCompletedCount: Int = 0
+
+    var activeTask: FocusTask? {
+        guard let id = activeTaskID else { return nil }
+        return tasks.first { $0.id == id }
+    }
 
     private init() {
         authorizationStatus = center.authorizationStatus
         loadSelection()
         lastKnownCompletedCount = StatsStore.completedCount
+        refreshTasks()
     }
 
     func requestAuthorization() async {
@@ -69,13 +76,61 @@ final class FamilyControlsManager: ObservableObject {
         justCompletedStreak = nil
     }
 
+    // MARK: - Tasks
+
+    /// Re-reads tasks from the shared App Group store. Needed because the
+    /// ShieldActionExtension (a separate process) can check off the
+    /// active task on its own -- call this whenever the app becomes
+    /// active so a completion made from the block screen shows up here.
+    func refreshTasks() {
+        tasks = TaskStore.loadTasks()
+        activeTaskID = TaskStore.activeTaskID
+    }
+
+    func addTask(title: String) {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        var updated = tasks
+        let newTask = FocusTask(title: trimmed)
+        updated.append(newTask)
+        tasks = updated
+        TaskStore.saveTasks(updated)
+        if activeTaskID == nil {
+            setActiveTask(newTask.id)
+        }
+    }
+
+    func deleteTasks(at offsets: IndexSet) {
+        let removedIDs = offsets.map { tasks[$0].id }
+        let updated = tasks.enumerated()
+            .filter { !offsets.contains($0.offset) }
+            .map { $0.element }
+        tasks = updated
+        TaskStore.saveTasks(updated)
+        if let activeTaskID, removedIDs.contains(activeTaskID) {
+            setActiveTask(nil)
+        }
+    }
+
+    func toggleTaskCompletion(_ task: FocusTask) {
+        guard let idx = tasks.firstIndex(where: { $0.id == task.id }) else { return }
+        tasks[idx].isCompleted.toggle()
+        TaskStore.saveTasks(tasks)
+    }
+
+    func setActiveTask(_ id: UUID?) {
+        activeTaskID = id
+        TaskStore.activeTaskID = id
+    }
+
+    // MARK: - Shield
+
     func applyShield() {
         guard !selection.applicationTokens.isEmpty else {
             lastError = "Select at least one app first."
             return
         }
-        let trimmedGoal = goalText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let text = trimmedGoal.isEmpty ? "Finish your focus task in FocusUp to unlock this app." : trimmedGoal
+        let text = activeTask?.title ?? "Finish your focus task in FocusUp to unlock this app."
         GoalStore.setGoal(text, for: selection.applicationTokens)
         store.shield.applications = selection.applicationTokens
         isShielded = true
@@ -96,9 +151,11 @@ final class FamilyControlsManager: ObservableObject {
         selection = saved
     }
 
+    // MARK: - Periodic check-ins
+
     /// Registers a stack of cumulative-usage thresholds (see
     /// FocusUpActivity) so the DeviceActivityMonitor extension re-shows
-    /// the block screen roughly every `checkInIntervalMinutes` of actual
+    /// the block screen roughly every `checkInIntervalSeconds` of actual
     /// use of the selected app(s), even mid-session. New today --
     /// reliability needs on-device verification.
     func startPeriodicCheckIns() {
