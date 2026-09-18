@@ -3,27 +3,54 @@ import SwiftUI
 struct TasksView: View {
     @StateObject private var manager = FamilyControlsManager.shared
     @State private var newTaskTitle = ""
+    @State private var hasDueDate = false
+    @State private var newTaskDueDate = Date()
 
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
             VStack(spacing: 0) {
-                HStack(spacing: 12) {
-                    TextField("Add a task, e.g. Apply to 3 internships", text: $newTaskTitle)
-                        .textFieldStyle(.plain)
-                        .padding(12)
-                        .background(Color(white: 0.15))
-                        .foregroundStyle(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                VStack(spacing: 8) {
+                    HStack(spacing: 12) {
+                        TextField("Add a task, e.g. Apply to 3 internships", text: $newTaskTitle)
+                            .textFieldStyle(.plain)
+                            .padding(12)
+                            .background(Color(white: 0.15))
+                            .foregroundStyle(.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
 
-                    Button {
-                        manager.addTask(title: newTaskTitle)
-                        newTaskTitle = ""
-                    } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.title2)
+                        Button {
+                            manager.addTask(title: newTaskTitle, dueDate: hasDueDate ? newTaskDueDate : nil)
+                            newTaskTitle = ""
+                            hasDueDate = false
+                            newTaskDueDate = Date()
+                        } label: {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.title2)
+                        }
+                        .foregroundStyle(.blue)
                     }
-                    .foregroundStyle(.blue)
+
+                    HStack(spacing: 12) {
+                        Toggle("Due date", isOn: $hasDueDate.animation())
+                            .toggleStyle(.switch)
+                            .tint(.orange)
+                            .foregroundStyle(.gray)
+                            .font(.footnote)
+                            .fixedSize()
+
+                        if hasDueDate {
+                            DatePicker("", selection: $newTaskDueDate, displayedComponents: .date)
+                                .labelsHidden()
+                                .colorScheme(.dark)
+                        } else {
+                            Text("None — treated as least urgent")
+                                .font(.caption2)
+                                .foregroundStyle(.gray)
+                        }
+
+                        Spacer()
+                    }
                 }
                 .padding()
 
@@ -48,6 +75,15 @@ struct TasksView: View {
                                     Text(task.title)
                                         .foregroundStyle(.white)
                                         .strikethrough(task.isCompleted)
+                                    if let due = task.dueDate {
+                                        Text("Due \(due.formatted(date: .abbreviated, time: .omitted))")
+                                            .font(.caption2)
+                                            .foregroundStyle(isPastDue(due) && !task.isCompleted ? .red : .gray)
+                                    } else {
+                                        Text("No due date")
+                                            .font(.caption2)
+                                            .foregroundStyle(.gray)
+                                    }
                                     if manager.activeTaskID == task.id {
                                         Text("Active — shown on the block screen")
                                             .font(.caption2)
@@ -80,7 +116,7 @@ struct TasksView: View {
                     .listStyle(.plain)
                 }
 
-                Text("Pick which task is \"Active\" to control what shows on the block screen when you Apply Shield. Only one task can be active at a time in this spike.")
+                Text("Tasks are auto-ordered by due date -- earliest first, same-day ties broken randomly, no date = least urgent. Whatever task is active stays active until it's finished, even if something else becomes due sooner. Tap \"Set Active\" to override which one comes first.")
                     .font(.caption2)
                     .foregroundStyle(.gray)
                     .padding()
@@ -92,6 +128,10 @@ struct TasksView: View {
         .onAppear {
             manager.refreshTasks()
         }
+    }
+
+    private func isPastDue(_ date: Date) -> Bool {
+        Calendar.current.startOfDay(for: date) < Calendar.current.startOfDay(for: Date())
     }
 }
 
