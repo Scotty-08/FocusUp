@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: focusup
+      POSTGRES_DB: focusup
+    ports:
+      - "5432:5432"
+    volumes:
+      - focusup_pgdata:/var/lib/postgresql/data
+
+volumes:
+  focusup_pgdata:
