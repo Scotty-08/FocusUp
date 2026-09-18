@@ -47,6 +47,10 @@ struct ContentView: View {
             }
         }
         .overlay {
+            // Quest-cleared celebration always wins if both are somehow
+            // pending at once -- refreshStats() already avoids setting
+            // justCheckedIn in that case, this is just the belt-and-
+            // suspenders UI-level guard.
             if let streak = manager.justCompletedStreak {
                 StreakCelebrationView(
                     streak: streak,
@@ -54,6 +58,16 @@ struct ContentView: View {
                     onDismiss: { manager.dismissStreakAnimation() },
                     onViewQuestLog: {
                         manager.dismissStreakAnimation()
+                        selectedTab = 1
+                    }
+                )
+            } else if manager.justCheckedIn {
+                CheckInView(
+                    streak: manager.currentStreak,
+                    activeQuestTitle: manager.activeTask?.title,
+                    onDismiss: { manager.dismissCheckIn() },
+                    onViewQuestLog: {
+                        manager.dismissCheckIn()
                         selectedTab = 1
                     }
                 )
