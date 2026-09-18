@@ -6,7 +6,7 @@ import SwiftUI
 /// title, one subtitle line, two buttons) with no room for glow,
 /// animation, or a close button, so this is where that design freedom
 /// actually lives: the moment you're back in FocusUp after tapping
-/// "Clear Quest — Unlock" on the shield.
+/// "Clear Quest" on the shield.
 ///
 /// questTitle is whichever quest was active at the moment it was
 /// cleared, captured by ShieldActionExtension before it auto-advances

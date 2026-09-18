@@ -12,6 +12,18 @@ struct ContentView: View {
     @StateObject private var manager = FamilyControlsManager.shared
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab = 0
+    @State private var showQuest = false
+
+    private func refreshQuestRoute() {
+        manager.refreshAuthorizationStatus()
+        manager.refreshTasks()
+        manager.refreshStats()
+        if QuestRoute.consume() {
+            manager.dismissCheckIn()
+            manager.dismissStreakAnimation()
+            showQuest = true
+        }
+    }
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -39,11 +51,13 @@ struct ContentView: View {
             }
             .tag(2)
         }
+        .onAppear { refreshQuestRoute() }
+        .fullScreenCover(isPresented: $showQuest) { QuestFocusView() }
         .tint(HunterTheme.cyan)
         .preferredColorScheme(.dark)
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
-                manager.refreshStats()
+                refreshQuestRoute()
             }
         }
         .overlay {

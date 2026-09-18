@@ -184,3 +184,17 @@ enum FocusUpActivity {
         return c
     }
 }
+
+/// A shield tap requests presentation only. Never carries app identities.
+enum QuestRoute {
+    private static let key = "focusUp.pendingQuestRoute"
+    static func request() {
+        UserDefaults(suiteName: FocusUpShared.appGroupID)?.set(true, forKey: key)
+    }
+    static func consume() -> Bool {
+        guard let defaults = UserDefaults(suiteName: FocusUpShared.appGroupID),
+              defaults.bool(forKey: key) else { return false }
+        defaults.removeObject(forKey: key)
+        return true
+    }
+}
