@@ -39,6 +39,7 @@ class ShieldActionExtension: ShieldActionDelegate {
             store.shield.applications = apps
             GoalStore.removeGoal(for: application)
             StatsStore.recordCompleted()
+            TaskStore.markActiveTaskCompleted()
             completionHandler(.close)
         @unknown default:
             completionHandler(.close)
