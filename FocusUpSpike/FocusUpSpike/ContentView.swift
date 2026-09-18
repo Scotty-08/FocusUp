@@ -1,7 +1,6 @@
 import SwiftUI
 
-/// Root of the signed-in app. Now split into pages (Home / Tasks)
-/// instead of one long scrolling screen, per Scott's request.
+/// Root of the signed-in app. Home / Quests / Hunter tabs.
 struct ContentView: View {
     var body: some View {
         TabView {
@@ -16,10 +15,17 @@ struct ContentView: View {
                 TasksView()
             }
             .tabItem {
-                Label("Tasks", systemImage: "checklist")
+                Label("Quests", systemImage: "checklist")
+            }
+
+            NavigationStack {
+                CharacterView()
+            }
+            .tabItem {
+                Label("Hunter", systemImage: "person.fill")
             }
         }
-        .tint(.orange)
+        .tint(HunterTheme.cyan)
         .preferredColorScheme(.dark)
     }
 }

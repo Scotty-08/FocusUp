@@ -8,16 +8,15 @@ struct TasksView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            HunterBackground(topRight: false)
             VStack(spacing: 0) {
-                VStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 12) {
-                        TextField("Add a task, e.g. Apply to 3 internships", text: $newTaskTitle)
-                            .textFieldStyle(.plain)
-                            .padding(12)
-                            .background(Color(white: 0.15))
-                            .foregroundStyle(.white)
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                        TextField("", text: $newTaskTitle, prompt: Text("New quest, e.g. Apply to 3 internships").foregroundStyle(HunterTheme.textMuted))
+                            .foregroundStyle(HunterTheme.textPrimary)
+                            .padding(.horizontal, 14)
+                            .frame(height: 44)
+                            .hudPanel()
 
                         Button {
                             manager.addTask(title: newTaskTitle, dueDate: hasDueDate ? newTaskDueDate : nil)
@@ -25,88 +24,50 @@ struct TasksView: View {
                             hasDueDate = false
                             newTaskDueDate = Date()
                         } label: {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.title2)
+                            Image(systemName: "plus")
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundStyle(HunterTheme.cyan)
+                                .frame(width: 44, height: 44)
                         }
-                        .foregroundStyle(.blue)
+                        .buttonStyle(.plain)
+                        .hudPanel()
                     }
 
-                    HStack(spacing: 12) {
-                        Toggle("Due date", isOn: $hasDueDate.animation())
+                    HStack(spacing: 8) {
+                        Toggle("", isOn: $hasDueDate.animation())
+                            .labelsHidden()
                             .toggleStyle(.switch)
-                            .tint(.orange)
-                            .foregroundStyle(.gray)
-                            .font(.footnote)
-                            .fixedSize()
+                            .tint(HunterTheme.cyan)
+                        Text("Deadline")
+                            .font(.system(size: 11))
+                            .foregroundStyle(HunterTheme.textMuted)
 
                         if hasDueDate {
                             DatePicker("", selection: $newTaskDueDate, displayedComponents: .date)
                                 .labelsHidden()
                                 .colorScheme(.dark)
                         } else {
-                            Text("None — treated as least urgent")
-                                .font(.caption2)
-                                .foregroundStyle(.gray)
+                            Text("None — undated quests rank lowest")
+                                .font(.system(size: 10))
+                                .foregroundStyle(HunterTheme.textMuted)
                         }
-
                         Spacer()
                     }
                 }
-                .padding()
+                .padding(20)
 
                 if manager.tasks.isEmpty {
                     Spacer()
-                    Text("No tasks yet. Add one above.")
-                        .foregroundStyle(.gray)
+                    Text("No quests yet. Add one above.")
+                        .foregroundStyle(HunterTheme.textMuted)
                     Spacer()
                 } else {
                     List {
                         ForEach(manager.tasks) { task in
-                            HStack {
-                                Button {
-                                    manager.toggleTaskCompletion(task)
-                                } label: {
-                                    Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
-                                        .foregroundStyle(task.isCompleted ? .green : .gray)
-                                }
-                                .buttonStyle(.plain)
-
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(task.title)
-                                        .foregroundStyle(.white)
-                                        .strikethrough(task.isCompleted)
-                                    if let due = task.dueDate {
-                                        Text("Due \(due.formatted(date: .abbreviated, time: .omitted))")
-                                            .font(.caption2)
-                                            .foregroundStyle(isPastDue(due) && !task.isCompleted ? .red : .gray)
-                                    } else {
-                                        Text("No due date")
-                                            .font(.caption2)
-                                            .foregroundStyle(.gray)
-                                    }
-                                    if manager.activeTaskID == task.id {
-                                        Text("Active — shown on the block screen")
-                                            .font(.caption2)
-                                            .foregroundStyle(.orange)
-                                    }
-                                }
-
-                                Spacer()
-
-                                Button {
-                                    manager.setActiveTask(task.id)
-                                } label: {
-                                    Text(manager.activeTaskID == task.id ? "Active" : "Set Active")
-                                        .font(.caption)
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 6)
-                                        .background(manager.activeTaskID == task.id ? Color.orange : Color(white: 0.2))
-                                        .foregroundStyle(.white)
-                                        .clipShape(Capsule())
-                                }
-                                .buttonStyle(.plain)
-                            }
-                            .listRowBackground(Color(white: 0.1))
+                            questRow(task)
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                                .listRowInsets(EdgeInsets(top: 5, leading: 20, bottom: 5, trailing: 20))
                         }
                         .onDelete { offsets in
                             manager.deleteTasks(at: offsets)
@@ -116,18 +77,78 @@ struct TasksView: View {
                     .listStyle(.plain)
                 }
 
-                Text("Tasks are auto-ordered by due date -- earliest first, same-day ties broken randomly, no date = least urgent. Whatever task is active stays active until it's finished, even if something else becomes due sooner. Tap \"Set Active\" to override which one comes first.")
-                    .font(.caption2)
-                    .foregroundStyle(.gray)
-                    .padding()
+                Text("Quests are auto-ordered by due date -- earliest first, same-day ties broken randomly, no date = least urgent. Whatever quest is active stays active until it's cleared, even if something else becomes due sooner. Tap \"Set Active\" to override which one comes first.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(HunterTheme.textMuted)
+                    .padding(20)
             }
         }
         .preferredColorScheme(.dark)
-        .navigationTitle("Tasks")
+        .navigationTitle("Quest Log")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             manager.refreshTasks()
         }
+    }
+
+    private func questRow(_ task: FocusTask) -> some View {
+        let isActive = manager.activeTaskID == task.id
+        return HStack(spacing: 12) {
+            Button {
+                manager.toggleTaskCompletion(task)
+            } label: {
+                Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(task.isCompleted ? Color.green : HunterTheme.textMuted)
+            }
+            .buttonStyle(.plain)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(task.title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(task.isCompleted ? HunterTheme.textMuted : HunterTheme.textPrimary)
+                    .strikethrough(task.isCompleted)
+                if let due = task.dueDate {
+                    Text("DEADLINE \(due.formatted(date: .abbreviated, time: .omitted).uppercased())\(task.isCompleted ? " · CLEARED" : (isActive ? " · IN PROGRESS" : ""))")
+                        .font(.system(size: 10))
+                        .foregroundStyle(isPastDue(due) && !task.isCompleted ? HunterTheme.danger : (isActive ? HunterTheme.cyan : HunterTheme.textMuted))
+                } else {
+                    Text(task.isCompleted ? "NO DEADLINE · CLEARED" : "NO DEADLINE")
+                        .font(.system(size: 10))
+                        .foregroundStyle(HunterTheme.textMuted)
+                }
+            }
+
+            Spacer()
+
+            if task.isCompleted {
+                EmptyView()
+            } else if isActive {
+                Text("ACTIVE")
+                    .font(.system(size: 10, weight: .heavy))
+                    .foregroundStyle(HunterTheme.bg)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 4)
+                    .background(HunterTheme.cyan)
+            } else {
+                Button {
+                    manager.setActiveTask(task.id)
+                } label: {
+                    Text("SET ACTIVE")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(HunterTheme.cyan)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 4)
+                }
+                .buttonStyle(.plain)
+                .overlay(Rectangle().strokeBorder(HunterTheme.cyanDim, lineWidth: 1))
+            }
+        }
+        .padding(12)
+        .opacity(task.isCompleted ? 0.55 : 1)
+        .hudPanel(
+            borderColor: isActive && !task.isCompleted ? HunterTheme.cyanDim : Color.white.opacity(0.06),
+            cornerAccent: isActive && !task.isCompleted ? HunterTheme.cyan : .clear
+        )
     }
 
     private func isPastDue(_ date: Date) -> Bool {
