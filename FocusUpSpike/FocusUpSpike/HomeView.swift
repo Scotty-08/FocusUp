@@ -1,5 +1,6 @@
 import SwiftUI
 import FamilyControls
+import ManagedSettings
 import ManagedSettingsUI
 
 struct HomeView: View {
@@ -177,14 +178,17 @@ struct HomeView: View {
             } else {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(Array(manager.selection.applicationTokens), id: \.self) { token in
-                        Label(token)
-                            .labelStyle(.titleAndIcon)
-                            .font(.system(size: 12))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(HunterTheme.cyan.opacity(0.08))
-                            .overlay(Rectangle().strokeBorder(HunterTheme.cyanDim, lineWidth: 1))
-                            .foregroundStyle(HunterTheme.textPrimary)
+                        HStack {
+                            Label(token)
+                                .labelStyle(.titleAndIcon)
+                                .font(.system(size: 12))
+                            Spacer()
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(HunterTheme.cyan.opacity(0.08))
+                        .overlay(Rectangle().strokeBorder(HunterTheme.cyanDim, lineWidth: 1))
+                        .foregroundStyle(HunterTheme.textPrimary)
                     }
                 }
             }

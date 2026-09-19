@@ -4,6 +4,8 @@ import ManagedSettings
 import DeviceActivity
 import UserNotifications
 import Combine
+import UIKit
+import ActivityKit
 
 /// Owns the one fixed ManagedSettingsStore identity for this spike.
 /// Do NOT rename `storeName` later — a renamed store orphans any shields
@@ -17,6 +19,9 @@ final class FamilyControlsManager: ObservableObject {
     private let store = ManagedSettingsStore(named: FamilyControlsManager.storeName)
     private let center = AuthorizationCenter.shared
     private let activityCenter = DeviceActivityCenter()
+    /// The Dynamic Island / Lock Screen Live Activity for the current
+    /// focus session, if one is running -- see startFocusActivity below.
+    private var focusActivity: Activity<FocusUpActivityAttributes>?
 
     @Published var authorizationStatus: AuthorizationStatus = .notDetermined
     @Published var selection = FamilyActivitySelection()
@@ -95,6 +100,7 @@ final class FamilyControlsManager: ObservableObject {
             justCheckedIn = true
         }
         lastKnownCheckInCount = newCheckInCount
+        updateFocusActivity()
     }
 
     func dismissStreakAnimation() {
@@ -190,12 +196,14 @@ final class FamilyControlsManager: ObservableObject {
         isShielded = true
         lastError = nil
         startPeriodicCheckIns()
+        startFocusActivity()
     }
 
     func clearShield() {
         stopPeriodicCheckIns()
         store.clearAllSettings()
         isShielded = false
+        endFocusActivity()
     }
 
     /// End actions are synchronous on MainActor, preventing overlapping taps.
@@ -288,5 +296,48 @@ final class FamilyControlsManager: ObservableObject {
         UserDefaults(suiteName: FocusUpShared.appGroupID)?.set(false, forKey: "focusUp.checkInsEnabled")
         activityCenter.stopMonitoring([FocusUpActivity.name])
         isPeriodicCheckInActive = false
+    }
+
+    // MARK: - Live Activity (Dynamic Island / Lock Screen)
+
+    /// Starts the Dynamic Island / Lock Screen Live Activity for the
+    /// focus session that Apply Shield just began. Best-effort: Live
+    /// Activities require the user to have them enabled (Settings ->
+    /// Face ID & Passcode -- or per-app in Settings -> FocusUp) and can
+    /// fail to start for reasons entirely outside our control, so a
+    /// failure here is silent rather than surfaced as a user-facing
+    /// error -- the actual shield is what matters; this is a bonus
+    /// glanceable display on top of it, not a dependency.
+    private func startFocusActivity() {
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+        endFocusActivity()
+        let attributes = FocusUpActivityAttributes(startedAt: Date())
+        let state = FocusUpActivityAttributes.ContentState(questTitle: activeTask?.title, streak: currentStreak)
+        do {
+            focusActivity = try Activity.request(
+                attributes: attributes,
+                content: ActivityContent(state: state, staleDate: nil)
+            )
+        } catch {
+            focusActivity = nil
+        }
+    }
+
+    /// Keeps the Live Activity's quest title / streak current -- called
+    /// from refreshStats, which already runs on every relevant change
+    /// (scenePhase becoming active, a completion, a check-in).
+    private func updateFocusActivity() {
+        guard let focusActivity else { return }
+        let state = FocusUpActivityAttributes.ContentState(questTitle: activeTask?.title, streak: currentStreak)
+        Task { await focusActivity.update(ActivityContent(state: state, staleDate: nil)) }
+    }
+
+    /// Ends the Live Activity immediately -- called from clearShield,
+    /// which every release path (finishQuest, endQuestEarly) already
+    /// routes through via releaseQuestRestrictions.
+    private func endFocusActivity() {
+        guard let focusActivity else { return }
+        Task { await focusActivity.end(nil, dismissalPolicy: .immediate) }
+        self.focusActivity = nil
     }
 }
