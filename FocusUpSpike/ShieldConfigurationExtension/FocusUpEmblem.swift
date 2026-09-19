@@ -1,25 +1,48 @@
 import UIKit
 
-/// Fixed-size original artwork; the OS still controls shield layout.
+/// Redesigned per Scott's request: simple, elegant, with a "new-gen
+/// AI" touch -- so this drops the boxed badge + letterform entirely in
+/// favor of two shapes: a thin ring (focus / a target, quiet and
+/// geometric) and a small solid 4-point sparkle at its center (the
+/// spark/"thinking" glyph a lot of AI products use). No text glyph, no
+/// filled tile -- it sits directly on the shield's own background.
 enum FocusUpEmblem {
     static let image: UIImage = {
-        let size = CGSize(width: 88, height: 88)
+        let size = CGSize(width: 108, height: 108)
         return UIGraphicsImageRenderer(size: size).image { context in
-            let cyan = UIColor(red: 62/255, green: 230/255, blue: 1, alpha: 1)
-            let frame = UIBezierPath()
-            frame.move(to: CGPoint(x: 16, y: 3))
-            for point in [CGPoint(x:85,y:3), CGPoint(x:85,y:72), CGPoint(x:72,y:85), CGPoint(x:3,y:85), CGPoint(x:3,y:16)] { frame.addLine(to: point) }
-            frame.close()
-            UIColor(red: 7/255, green: 22/255, blue: 29/255, alpha: 1).setFill()
-            frame.fill()
-            cyan.withAlphaComponent(0.6).setStroke()
-            frame.lineWidth = 1.5
-            frame.stroke()
-            context.cgContext.setShadow(offset: .zero, blur: 7, color: cyan.withAlphaComponent(0.35).cgColor)
-            ("F↑" as NSString).draw(at: CGPoint(x: 19, y: 23), withAttributes: [
-                .font: UIFont.systemFont(ofSize: 35, weight: .heavy),
-                .foregroundColor: cyan, .kern: -3
-            ])
+            let cyan = UIColor(red: 115/255, green: 191/255, blue: 202/255, alpha: 1)
+            let center = CGPoint(x: 54, y: 54)
+            let ctx = context.cgContext
+
+            // Thin outer ring.
+            let ring = UIBezierPath(arcCenter: center, radius: 40, startAngle: 0, endAngle: .pi * 2, clockwise: true)
+            ring.lineWidth = 2.5
+            cyan.withAlphaComponent(0.85).setStroke()
+            ring.stroke()
+
+            // Small 4-point sparkle at the center -- long N/E/S/W points,
+            // short concave notches between them.
+            let outer: CGFloat = 22
+            let inner: CGFloat = 6
+            let points: [CGPoint] = [
+                CGPoint(x: center.x, y: center.y - outer),       // N
+                CGPoint(x: center.x + inner, y: center.y - inner), // concave
+                CGPoint(x: center.x + outer, y: center.y),       // E
+                CGPoint(x: center.x + inner, y: center.y + inner), // concave
+                CGPoint(x: center.x, y: center.y + outer),       // S
+                CGPoint(x: center.x - inner, y: center.y + inner), // concave
+                CGPoint(x: center.x - outer, y: center.y),       // W
+                CGPoint(x: center.x - inner, y: center.y - inner), // concave
+            ]
+            let sparkle = UIBezierPath()
+            sparkle.move(to: points[0])
+            for p in points.dropFirst() { sparkle.addLine(to: p) }
+            sparkle.close()
+
+            ctx.setShadow(offset: .zero, blur: 9, color: cyan.withAlphaComponent(0.55).cgColor)
+            cyan.setFill()
+            sparkle.fill()
         }.withRenderingMode(.alwaysOriginal)
     }()
 }
+
