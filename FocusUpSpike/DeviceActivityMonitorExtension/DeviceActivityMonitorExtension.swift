@@ -44,11 +44,22 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
                 body: "\u{201C}\(group.name)\u{201D} is locked for the rest of today's budget."
             )
         } else if kind == "reminder" {
+            // Never downgrade a real lockout into a dismissable nudge --
+            // if today's budget is already blown, leave the existing
+            // .limitBudgetExceeded reason (and store assignment) alone.
+            guard !GroupRuntimeState.exceededToday(groupID) else { return }
+            // The reminder schedule runs all day (it isn't segmented
+            // around windows the way budget tracking is), so it CAN fire
+            // while inside a free-access window -- skip it there since a
+            // window means no nagging at all, not even a dismissable one.
+            let now = Date()
+            guard !group.rule.windows.contains(where: { $0.contains(now) }) else { return }
+
             GroupRuntimeState.setShieldReason(.limitReminder, for: groupID)
             ManagedSettingsStore(named: GroupIdentity.storeName(for: groupID)).shield.applications = group.selection.applicationTokens
             scheduleNotification(
                 title: "Quick check-in \u{26A1}",
-                body: "Still working on your quest? Tap to check in."
+                body: "Tap to check in."
             )
         }
     }

@@ -75,7 +75,11 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
     /// behave identically here.
     private func reminderShield(group: AppGroup) -> ShieldConfiguration {
         let task = taskTitle(for: group)
-        let headline = task.map { "Still on \u{201C}\($0)\u{201D}?" } ?? "Quick check-in."
+        // With a linked quest, name it. With none, ask the reflective
+        // question instead of just saying nothing to check on -- the
+        // nudge should still make you pause even when there's no
+        // specific task driving it.
+        let headline = task.map { "Still on \u{201C}\($0)\u{201D}?" } ?? "Why am I checking this?"
         return ShieldConfiguration(
             backgroundBlurStyle: .systemMaterialDark,
             backgroundColor: bg,

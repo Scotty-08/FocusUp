@@ -286,66 +286,78 @@ final class FamilyControlsManager: ObservableObject {
     /// stores/activities, a mid-day window boundary, and now a
     /// realistic multi-window count) before this is trusted, not just
     /// this code existing.
+    /// Limit-rule groups always stay ACCESSIBLE -- they never lock you out
+    /// just for existing. What "limiting" actually means: a periodic
+    /// reminder shield nags you every reminderIntervalMinutes of use (see
+    /// GroupIdentity.reminderActivityName below), dismissable, not a real
+    /// block. Free-access windows suspend that nagging (and any budget
+    /// tracking) entirely while they're active. The ONE real lockout is a
+    /// daily budget, if one is set, being used up -- that's an actual
+    /// ManagedSettings shield the user can't dismiss, per "when you reach
+    /// your daily limit it should block the app."
     private func activateLimit(_ group: AppGroup) {
         let tokens = group.selection.applicationTokens
         GroupRuntimeState.setExceededToday(false, for: group.id)
         GroupRuntimeState.setShieldReason(nil, for: group.id)
         GoalStore.setGoal(goalText(for: group), for: tokens)
+        // Always starts accessible, regardless of window state -- the
+        // reminder cadence is threshold-based (takes some actual use to
+        // fire), not an immediate wall the moment a window ends.
         ManagedSettingsStore(named: GroupIdentity.storeName(for: group.id)).shield.applications = nil
 
         let dayStart = DateComponents(hour: 0, minute: 0, second: 0)
         let dayEnd = DateComponents(hour: 23, minute: 59, second: 59)
+        let sortedWindows = group.rule.windows
+            .prefix(GroupRule.maxWindows)
+            .sorted { ($0.startHour, $0.startMinute) < ($1.startHour, $1.startMinute) }
 
-        // No daily budget at all -- the group just stays accessible with
-        // (optional) reminders below; nothing to register here. Windows
-        // are meaningless without a budget to be exempt from, so they're
-        // intentionally ignored in this branch even if the rule has some
-        // saved (GroupDetailView hides window editing whenever there's no
-        // daily limit, so this should normally be empty anyway).
-        if let dailyBudgetMinutes = group.rule.dailyBudgetMinutes {
-            let budgetComponents = GroupActivityMarks.components(forMinutes: dailyBudgetMinutes)
-            let sortedWindows = group.rule.windows
-                .prefix(GroupRule.maxWindows)
-                .sorted { ($0.startHour, $0.startMinute) < ($1.startHour, $1.startMinute) }
-
-            // One budget-tracking segment per gap between windows (or
-            // the whole day, if there are none), plus one boundary-only
-            // activity per window. Known approximation (flagged in the
-            // plan, not silently assumed away): each segment's counter
-            // resets independently, so with N windows a user could use
-            // up to (N+1) x dailyBudgetMinutes total across the day --
-            // there's no DeviceActivity primitive to share one
-            // cumulative counter across disjoint schedules.
-            var cursor = dayStart
-            var segmentIndex = 0
-            for window in sortedWindows {
+        // Window boundary activities register whenever there ARE windows,
+        // independent of whether a daily budget is set -- a window always
+        // means "no reminders, no budget tracking, fully free" (see
+        // DeviceActivityMonitorExtension's guard on reminder events, and
+        // the budget segments below which are scoped to skip window
+        // spans entirely).
+        var cursor = dayStart
+        var segmentIndex = 0
+        for window in sortedWindows {
+            if let dailyBudgetMinutes = group.rule.dailyBudgetMinutes {
                 registerActivity(
                     GroupIdentity.budgetActivityName(for: group.id, segment: segmentIndex),
                     schedule: DeviceActivitySchedule(intervalStart: cursor, intervalEnd: window.startComponents, repeats: true),
                     events: [GroupIdentity.eventName(groupID: group.id, kind: "budget\(segmentIndex)", mark: dailyBudgetMinutes):
-                        DeviceActivityEvent(applications: tokens, threshold: budgetComponents)]
+                        DeviceActivityEvent(applications: tokens, threshold: GroupActivityMarks.components(forMinutes: dailyBudgetMinutes))]
                 )
-                registerActivity(
-                    GroupIdentity.windowActivityName(for: group.id, index: segmentIndex),
-                    schedule: DeviceActivitySchedule(intervalStart: window.startComponents, intervalEnd: window.endComponents, repeats: true),
-                    events: [:]
-                )
-                cursor = window.endComponents
-                segmentIndex += 1
             }
+            registerActivity(
+                GroupIdentity.windowActivityName(for: group.id, index: segmentIndex),
+                schedule: DeviceActivitySchedule(intervalStart: window.startComponents, intervalEnd: window.endComponents, repeats: true),
+                events: [:]
+            )
+            cursor = window.endComponents
+            segmentIndex += 1
+        }
+        // Final (or only, if no windows) budget-tracking segment, from
+        // the last window's end (or midnight) through 23:59:59. Known
+        // approximation, flagged not silently assumed away: each segment
+        // resets its cumulative counter independently, so with N windows
+        // a user could use up to (N+1) x dailyBudgetMinutes total across
+        // the day -- there's no DeviceActivity primitive to share one
+        // counter across disjoint schedules.
+        if let dailyBudgetMinutes = group.rule.dailyBudgetMinutes {
             registerActivity(
                 GroupIdentity.budgetActivityName(for: group.id, segment: segmentIndex),
                 schedule: DeviceActivitySchedule(intervalStart: cursor, intervalEnd: dayEnd, repeats: true),
                 events: [GroupIdentity.eventName(groupID: group.id, kind: "budget\(segmentIndex)", mark: dailyBudgetMinutes):
-                    DeviceActivityEvent(applications: tokens, threshold: budgetComponents)]
+                    DeviceActivityEvent(applications: tokens, threshold: GroupActivityMarks.components(forMinutes: dailyBudgetMinutes))]
             )
         }
 
-        // Reminder cadence only when there's a task to remind about --
-        // an untasked Limit group is just a plain usage cap (or fully
-        // unrestricted, if there's no daily limit either), nothing to
-        // nag about.
-        if group.taskID != nil {
+        // Reminder cadence is unconditional for every Limit group -- see
+        // this function's doc comment. Copy adapts in
+        // ShieldConfigurationExtension: the linked task's title if there
+        // is one, otherwise a "why am I checking this?" reflection
+        // prompt -- either way it's a dismissable nudge, never a lock.
+        do {
             var events: [DeviceActivityEvent.Name: DeviceActivityEvent] = [:]
             for mark in GroupActivityMarks.marks(intervalMinutes: group.rule.reminderIntervalMinutes) {
                 events[GroupIdentity.eventName(groupID: group.id, kind: "reminder", mark: mark)] =
