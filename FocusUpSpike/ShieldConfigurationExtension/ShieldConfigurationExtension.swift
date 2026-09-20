@@ -69,17 +69,47 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
         )
     }
 
+    /// The quest list to remind the user of on the interruption screen --
+    /// every open (incomplete) quest, not just the one this particular
+    /// group happens to link to, with the linked one (if any) pinned
+    /// first since it's still the most relevant. Capped at `maxShown`
+    /// with a "+N more" tail so a long list doesn't overflow the
+    /// system-controlled shield layout (SHIELD_DESIGN.md: the system
+    /// chooses shield typography/layout, not us) -- exact wrapping
+    /// behavior for a multi-line bulleted subtitle is unverified on
+    /// device, same caveat as every other shield-copy choice here.
+    private func questList(for group: AppGroup, maxShown: Int = 5) -> [FocusTask] {
+        var tasks = TaskStore.loadTasks().filter { !$0.isCompleted }
+        if let linkedID = group.taskID, let idx = tasks.firstIndex(where: { $0.id == linkedID }) {
+            let linked = tasks.remove(at: idx)
+            tasks.insert(linked, at: 0)
+        }
+        return Array(tasks.prefix(maxShown))
+    }
+
     /// A dismissable nudge, not a lockout -- copy and button labels make
     /// clear tapping through just continues, it doesn't complete
     /// anything. See ShieldActionExtension.handleLimit: both buttons
     /// behave identically here.
+    ///
+    /// ALWAYS shows the full quest list when any quests are open, not
+    /// just a single task name -- the point of the interruption is to
+    /// put the whole list back in front of the user, not just whichever
+    /// one this group happens to be linked to.
     private func reminderShield(group: AppGroup) -> ShieldConfiguration {
-        let task = taskTitle(for: group)
-        // With a linked quest, name it. With none, ask the reflective
-        // question instead of just saying nothing to check on -- the
-        // nudge should still make you pause even when there's no
-        // specific task driving it.
-        let headline = task.map { "Still on \u{201C}\($0)\u{201D}?" } ?? "Why am I checking this?"
+        let allOpen = TaskStore.loadTasks().filter { !$0.isCompleted }
+        let headline: String
+        if allOpen.isEmpty {
+            // No quests at all to remind about -- ask the reflective
+            // question instead of just saying nothing to check on. The
+            // nudge should still make you pause even with an empty list.
+            headline = "Why am I checking this?"
+        } else {
+            let shown = questList(for: group)
+            let bulletList = shown.map { "\u{2022} \($0.title)" }.joined(separator: "\n")
+            let overflow = allOpen.count - shown.count
+            headline = "Your quests:\n\(bulletList)" + (overflow > 0 ? "\n+\(overflow) more" : "")
+        }
         return ShieldConfiguration(
             backgroundBlurStyle: .systemMaterialDark,
             backgroundColor: bg,
