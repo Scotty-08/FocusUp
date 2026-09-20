@@ -4,13 +4,15 @@ import ManagedSettings
 import DeviceActivity
 
 /// One user-defined window of the day during which a Limit-rule group's
-/// apps are always accessible, regardless of its daily budget. MVP caps
-/// this at one window per group -- a second window would fragment the
-/// day into more disjoint budget schedules, each with its own
-/// independently-resetting cumulative counter (see activateLimit in
-/// FamilyControlsManager.swift for why that's already an accepted
-/// approximation with just one window).
-struct ScheduleWindow: Codable, Equatable {
+/// apps are always accessible, regardless of its daily budget. A group
+/// can have several (see GroupRule.maxWindows) -- each additional window
+/// splits the rest of the day into more disjoint budget-tracking
+/// segments, each with its own independently-resetting cumulative
+/// counter (see activateLimit in FamilyControlsManager.swift for why
+/// that's an accepted approximation, not a bug, and why the window count
+/// is capped rather than unlimited).
+struct ScheduleWindow: Identifiable, Codable, Equatable {
+    var id: UUID = UUID()
     var startHour: Int
     var startMinute: Int
     var endHour: Int
@@ -38,10 +40,25 @@ enum RuleKind: String, Codable {
 /// Codable enum-with-associated-values -- matches this codebase's
 /// existing preference for simple, hand-decodable shapes (see
 /// FocusTask). Limit-only fields are ignored when kind == .block.
+///
+/// dailyBudgetMinutes is OPTIONAL: nil means "no daily limit" -- the
+/// group stays accessible all day (reminders still fire if a task is
+/// linked, but nothing ever auto-blocks it). When it IS set, `windows`
+/// are the free-access exceptions to that budget; with no windows, the
+/// budget just applies to the whole day.
 struct GroupRule: Codable, Equatable {
+    /// Registering N windows means up to N+1 independent budget-tracking
+    /// DeviceActivityNames plus N window-boundary ones, on top of a
+    /// possible reminder activity -- this app has never tested a
+    /// concurrent-registration count anywhere near that. Capped at 5
+    /// (matching the "+4 more" scale of typical reference examples) to
+    /// keep the worst case bounded until that's verified on device; see
+    /// the plan's Step 0.
+    static let maxWindows = 5
+
     var kind: RuleKind
-    var dailyBudgetMinutes: Int = 30
-    var window: ScheduleWindow?
+    var dailyBudgetMinutes: Int?
+    var windows: [ScheduleWindow] = []
     var reminderIntervalMinutes: Int = 5
 }
 
@@ -70,9 +87,16 @@ struct AppGroup: Identifiable, Codable, Equatable {
             }
             return "Blocked until its linked quest is done."
         case .limit:
-            var parts = ["\(rule.dailyBudgetMinutes) min/day"]
-            if let window = rule.window {
-                parts.append("No limits \(window.label)")
+            var parts: [String] = []
+            if let minutes = rule.dailyBudgetMinutes {
+                parts.append("\(minutes) min/day")
+            } else {
+                parts.append("No daily limit")
+            }
+            let sortedWindows = rule.windows.sorted { ($0.startHour, $0.startMinute) < ($1.startHour, $1.startMinute) }
+            if let first = sortedWindows.first {
+                let extra = sortedWindows.count - 1
+                parts.append(extra > 0 ? "No limits \(first.label), +\(extra) more" : "No limits \(first.label)")
             }
             return parts.joined(separator: ". ") + "."
         }
@@ -153,16 +177,21 @@ enum GroupIdentity {
         ManagedSettingsStore.Name("\(storePrefix)\(groupID.uuidString)")
     }
 
-    static func budgetPreActivityName(for groupID: UUID) -> DeviceActivityName {
-        DeviceActivityName("\(activityPrefix)\(groupID.uuidString).budgetPre")
+    /// `segment` indexes the gap between windows (0 = midnight to the
+    /// first window's start, or the whole day if there are no windows;
+    /// the last segment runs from the final window's end to 23:59:59).
+    /// The index is embedded directly in `kind` (e.g. "budget0") rather
+    /// than as a separate name component, so DeviceActivityMonitorExtension
+    /// can branch on `kind.hasPrefix("budget")` for the shared
+    /// lockout logic while still special-casing "budget0" for the
+    /// midnight reset -- segment 0 is the only one guaranteed to always
+    /// start exactly at midnight regardless of window count.
+    static func budgetActivityName(for groupID: UUID, segment: Int) -> DeviceActivityName {
+        DeviceActivityName("\(activityPrefix)\(groupID.uuidString).budget\(segment)")
     }
 
-    static func budgetPostActivityName(for groupID: UUID) -> DeviceActivityName {
-        DeviceActivityName("\(activityPrefix)\(groupID.uuidString).budgetPost")
-    }
-
-    static func windowActivityName(for groupID: UUID) -> DeviceActivityName {
-        DeviceActivityName("\(activityPrefix)\(groupID.uuidString).window")
+    static func windowActivityName(for groupID: UUID, index: Int) -> DeviceActivityName {
+        DeviceActivityName("\(activityPrefix)\(groupID.uuidString).window\(index)")
     }
 
     static func reminderActivityName(for groupID: UUID) -> DeviceActivityName {
@@ -175,10 +204,10 @@ enum GroupIdentity {
 
     /// Inverse of the activity-name builders above: given whatever
     /// DeviceActivityName the monitor extension was invoked with,
-    /// recover which group it belongs to and which of the four roles
-    /// (budgetPre/budgetPost/window/reminder) it plays. Pure string
-    /// parsing -- deliberately independent of any device behavior so it
-    /// can be trusted without on-device testing.
+    /// recover which group it belongs to and its role, e.g. "budget0",
+    /// "window2", "reminder". Pure string parsing -- deliberately
+    /// independent of any device behavior so it can be trusted without
+    /// on-device testing.
     static func parse(_ activity: DeviceActivityName) -> (groupID: UUID, kind: String)? {
         let raw = activity.rawValue
         guard raw.hasPrefix(activityPrefix) else { return nil }

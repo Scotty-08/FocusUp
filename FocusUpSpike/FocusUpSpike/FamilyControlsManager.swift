@@ -240,20 +240,24 @@ final class FamilyControlsManager: ObservableObject {
     }
 
     /// Mirrors activate(_:) for both rule kinds at once -- clears the
-    /// group's store and stops all four possible DeviceActivityNames
-    /// (stopMonitoring on a name that was never registered is a no-op,
-    /// same defensive pattern the old single-activity code already used)
-    /// so switching a group's rule kind on edit, or deleting it, can
-    /// never leave stale enforcement behind regardless of which kind it
-    /// used to be.
+    /// group's store and stops every possible DeviceActivityName up to
+    /// the maxWindows ceiling (stopMonitoring on a name that was never
+    /// registered is a no-op, same defensive pattern the old
+    /// single-activity code already used), regardless of how many
+    /// windows the group's CURRENT rule actually has -- so switching a
+    /// group's rule kind on edit, or shrinking its window count, or
+    /// deleting it, can never leave a higher-indexed registration
+    /// stranded from a previous configuration.
     private func deactivate(_ group: AppGroup) {
         ManagedSettingsStore(named: GroupIdentity.storeName(for: group.id)).clearAllSettings()
-        activityCenter.stopMonitoring([
-            GroupIdentity.budgetPreActivityName(for: group.id),
-            GroupIdentity.budgetPostActivityName(for: group.id),
-            GroupIdentity.windowActivityName(for: group.id),
-            GroupIdentity.reminderActivityName(for: group.id)
-        ])
+        var names: [DeviceActivityName] = [GroupIdentity.reminderActivityName(for: group.id)]
+        for i in 0...GroupRule.maxWindows {
+            names.append(GroupIdentity.budgetActivityName(for: group.id, segment: i))
+        }
+        for i in 0..<GroupRule.maxWindows {
+            names.append(GroupIdentity.windowActivityName(for: group.id, index: i))
+        }
+        activityCenter.stopMonitoring(names)
         GroupRuntimeState.clear(group.id)
     }
 
@@ -275,11 +279,13 @@ final class FamilyControlsManager: ObservableObject {
     /// depends on. Built only from primitives this codebase already
     /// used once for its single global check-in (cumulative
     /// DeviceActivityEvent thresholds, intervalStart/intervalEnd
-    /// boundaries) -- registering up to four DeviceActivityNames for one
-    /// group is new, untested territory: this app has only ever run
-    /// exactly one at a time before. Needs the device spikes in the plan
-    /// (two simultaneous named stores/activities, a mid-day window
-    /// boundary) before this is trusted, not just this code existing.
+    /// boundaries) -- registering more than a handful of
+    /// DeviceActivityNames for one group is new, untested territory:
+    /// this app has only ever run exactly one at a time before. Needs
+    /// the device spikes in the plan (several simultaneous named
+    /// stores/activities, a mid-day window boundary, and now a
+    /// realistic multi-window count) before this is trusted, not just
+    /// this code existing.
     private func activateLimit(_ group: AppGroup) {
         let tokens = group.selection.applicationTokens
         GroupRuntimeState.setExceededToday(false, for: group.id)
@@ -289,44 +295,55 @@ final class FamilyControlsManager: ObservableObject {
 
         let dayStart = DateComponents(hour: 0, minute: 0, second: 0)
         let dayEnd = DateComponents(hour: 23, minute: 59, second: 59)
-        let budgetComponents = GroupActivityMarks.components(forMinutes: group.rule.dailyBudgetMinutes)
 
-        if let window = group.rule.window {
-            // Budget before the window, budget after the window, and the
-            // window itself purely for its start/end boundary callbacks.
-            // Known approximation (documented in the plan, not silently
-            // assumed away): budgetPre and budgetPost reset independently,
-            // so a user could use up to ~2x dailyBudgetMinutes total --
-            // there's no DeviceActivity primitive to share one cumulative
-            // counter across two disjoint schedules.
+        // No daily budget at all -- the group just stays accessible with
+        // (optional) reminders below; nothing to register here. Windows
+        // are meaningless without a budget to be exempt from, so they're
+        // intentionally ignored in this branch even if the rule has some
+        // saved (GroupDetailView hides window editing whenever there's no
+        // daily limit, so this should normally be empty anyway).
+        if let dailyBudgetMinutes = group.rule.dailyBudgetMinutes {
+            let budgetComponents = GroupActivityMarks.components(forMinutes: dailyBudgetMinutes)
+            let sortedWindows = group.rule.windows
+                .prefix(GroupRule.maxWindows)
+                .sorted { ($0.startHour, $0.startMinute) < ($1.startHour, $1.startMinute) }
+
+            // One budget-tracking segment per gap between windows (or
+            // the whole day, if there are none), plus one boundary-only
+            // activity per window. Known approximation (flagged in the
+            // plan, not silently assumed away): each segment's counter
+            // resets independently, so with N windows a user could use
+            // up to (N+1) x dailyBudgetMinutes total across the day --
+            // there's no DeviceActivity primitive to share one
+            // cumulative counter across disjoint schedules.
+            var cursor = dayStart
+            var segmentIndex = 0
+            for window in sortedWindows {
+                registerActivity(
+                    GroupIdentity.budgetActivityName(for: group.id, segment: segmentIndex),
+                    schedule: DeviceActivitySchedule(intervalStart: cursor, intervalEnd: window.startComponents, repeats: true),
+                    events: [GroupIdentity.eventName(groupID: group.id, kind: "budget\(segmentIndex)", mark: dailyBudgetMinutes):
+                        DeviceActivityEvent(applications: tokens, threshold: budgetComponents)]
+                )
+                registerActivity(
+                    GroupIdentity.windowActivityName(for: group.id, index: segmentIndex),
+                    schedule: DeviceActivitySchedule(intervalStart: window.startComponents, intervalEnd: window.endComponents, repeats: true),
+                    events: [:]
+                )
+                cursor = window.endComponents
+                segmentIndex += 1
+            }
             registerActivity(
-                GroupIdentity.budgetPreActivityName(for: group.id),
-                schedule: DeviceActivitySchedule(intervalStart: dayStart, intervalEnd: window.startComponents, repeats: true),
-                events: [GroupIdentity.eventName(groupID: group.id, kind: "budgetPre", mark: group.rule.dailyBudgetMinutes):
-                    DeviceActivityEvent(applications: tokens, threshold: budgetComponents)]
-            )
-            registerActivity(
-                GroupIdentity.budgetPostActivityName(for: group.id),
-                schedule: DeviceActivitySchedule(intervalStart: window.endComponents, intervalEnd: dayEnd, repeats: true),
-                events: [GroupIdentity.eventName(groupID: group.id, kind: "budgetPost", mark: group.rule.dailyBudgetMinutes):
-                    DeviceActivityEvent(applications: tokens, threshold: budgetComponents)]
-            )
-            registerActivity(
-                GroupIdentity.windowActivityName(for: group.id),
-                schedule: DeviceActivitySchedule(intervalStart: window.startComponents, intervalEnd: window.endComponents, repeats: true),
-                events: [:]
-            )
-        } else {
-            registerActivity(
-                GroupIdentity.budgetPreActivityName(for: group.id),
-                schedule: DeviceActivitySchedule(intervalStart: dayStart, intervalEnd: dayEnd, repeats: true),
-                events: [GroupIdentity.eventName(groupID: group.id, kind: "budgetPre", mark: group.rule.dailyBudgetMinutes):
+                GroupIdentity.budgetActivityName(for: group.id, segment: segmentIndex),
+                schedule: DeviceActivitySchedule(intervalStart: cursor, intervalEnd: dayEnd, repeats: true),
+                events: [GroupIdentity.eventName(groupID: group.id, kind: "budget\(segmentIndex)", mark: dailyBudgetMinutes):
                     DeviceActivityEvent(applications: tokens, threshold: budgetComponents)]
             )
         }
 
         // Reminder cadence only when there's a task to remind about --
-        // an untasked Limit group is just a plain usage cap, nothing to
+        // an untasked Limit group is just a plain usage cap (or fully
+        // unrestricted, if there's no daily limit either), nothing to
         // nag about.
         if group.taskID != nil {
             var events: [DeviceActivityEvent.Name: DeviceActivityEvent] = [:]
