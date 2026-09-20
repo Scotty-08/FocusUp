@@ -9,6 +9,13 @@ import DeviceActivity
 /// extensions silently see no data / no shield.
 enum FocusUpShared {
     static let appGroupID = "group.com.scottgray.FocusUpSpike"
+
+    /// LEGACY / migration-only. This was the app's one fixed shield
+    /// store before AppGroup existed (see GroupStore.swift) -- every
+    /// group now gets its own store via GroupIdentity.storeName(for:).
+    /// Kept only so FamilyControlsManager.runLegacyMigrationIfNeeded()
+    /// can clear it once and for all on upgrade; nothing should write a
+    /// new shield under this name again.
     static let storeName = ManagedSettingsStore.Name("com.scottgray.FocusUpSpike.mainStore")
 }
 
@@ -123,10 +130,12 @@ enum StatsStore {
     }
 }
 
-/// Persists the user's current FamilyActivitySelection in the shared App
-/// Group (not UserDefaults.standard, which is sandboxed per-process) so
-/// the DeviceActivityMonitor extension -- a separate process -- knows
-/// which apps to re-shield when a check-in threshold fires.
+/// LEGACY / migration-only. Persisted the app's single global
+/// FamilyActivitySelection before AppGroup existed (see
+/// GroupStore.swift) -- each group now carries its own `selection`
+/// directly. Kept only so FamilyControlsManager's one-time migration can
+/// read a pre-groups install's selection; `save` should never be called
+/// again.
 enum SelectionStore {
     private static let key = "focusUpSpike.selection"
 
@@ -145,15 +154,14 @@ enum SelectionStore {
     }
 }
 
-/// Periodic "check-in" scheduling. DeviceActivity has no native "repeat
-/// every N minutes" primitive -- there's no timer you hand a fixed
-/// cadence to. What it has is USAGE thresholds: you register a stack of
-/// them (30, 60, 90 min...) against a daily schedule, and each one fires
-/// once when cumulative time in the selected apps crosses that many
-/// minutes that day. So "check in every 30 min" here means every 30
-/// cumulative minutes of actually using the selected app(s), not 30
-/// wall-clock minutes regardless of use. This whole mechanism is new
-/// today and needs on-device verification, same as everything else was.
+/// LEGACY / migration-only. Drove the app's one global periodic
+/// check-in before AppGroup existed -- Limit-rule groups now register
+/// their own reminder/budget DeviceActivityNames directly (see
+/// GroupIdentity and GroupActivityMarks in GroupStore.swift, which
+/// generalizes the cumulative-threshold trick this enum pioneered).
+/// Kept only so FamilyControlsManager's one-time migration can stop
+/// monitoring `name` on upgrade; nothing should start monitoring it
+/// again.
 enum FocusUpActivity {
     static let name = DeviceActivityName("focusUp.checkIn")
 

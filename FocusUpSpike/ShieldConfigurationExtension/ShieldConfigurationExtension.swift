@@ -21,30 +21,100 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
         return filled + empty
     }
 
-    /// token is the specific app being shielded, when known -- lets the
-    /// headline show the goal text the user typed for THIS app
-    /// (GoalStore) instead of always falling back to the active task
-    /// title. Web-domain shields have no per-app goal, so they pass nil
-    /// and fall straight through to the task/default text.
-    private func brandedShield(for token: ApplicationToken?) -> ShieldConfiguration {
-        let goal = token.flatMap { GoalStore.goal(for: $0) }?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        let taskTitle = TaskStore.activeTask?.title
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        let headline = [goal, taskTitle].compactMap { $0 }.first { !$0.isEmpty }
-            ?? "Your quest comes first."
-
+    private var streakLine: String {
         let streak = StatsStore.currentStreak
-        let streakLine = streak > 0
-            ? "\(streakDots(streak))  \(streak)-quest streak"
-            : "Stay locked in."
+        return streak > 0 ? "\(streakDots(streak))  \(streak)-quest streak" : "Stay locked in."
+    }
 
+    private func taskTitle(for group: AppGroup) -> String? {
+        guard let taskID = group.taskID else { return nil }
+        return TaskStore.loadTasks().first { $0.id == taskID }?.title
+    }
+
+    /// Every shield this app shows is one of exactly three shapes now:
+    /// a Block-rule lockout gated on a task, a Limit-rule reminder nudge
+    /// (dismissable), or a Limit-rule budget lockout (not dismissable --
+    /// see ShieldActionExtension). `token` resolves back to the owning
+    /// AppGroup; web-domain shields and orphaned tokens fall through to
+    /// a neutral default since groups only ever select app tokens.
+    private func brandedShield(for token: ApplicationToken?) -> ShieldConfiguration {
+        guard let token, let group = GroupStore.group(containing: token) else {
+            return defaultShield()
+        }
+        let reason = GroupRuntimeState.shieldReason(for: group.id)
+        switch (group.rule.kind, reason) {
+        case (.limit, .limitReminder):
+            return reminderShield(group: group)
+        case (.limit, .limitBudgetExceeded):
+            return lockoutShield(group: group)
+        default:
+            // .block, or a Limit group with no reason recorded yet
+            // (shouldn't happen -- defensive fallback to the block copy
+            // rather than a blank shield).
+            return blockShield(group: group)
+        }
+    }
+
+    private func blockShield(group: AppGroup) -> ShieldConfiguration {
+        let headline = taskTitle(for: group) ?? "Your quest comes first."
         return ShieldConfiguration(
             backgroundBlurStyle: .systemMaterialDark,
             backgroundColor: bg,
             icon: FocusUpEmblem.image,
             title: .init(text: "FocusUp", color: ink),
             subtitle: .init(text: "\(headline)\n\(streakLine)", color: inkDim),
+            primaryButtonLabel: .init(text: "Open Quest", color: bg),
+            primaryButtonBackgroundColor: cyan,
+            secondaryButtonLabel: .init(text: "Give up", color: deadRust)
+        )
+    }
+
+    /// A dismissable nudge, not a lockout -- copy and button labels make
+    /// clear tapping through just continues, it doesn't complete
+    /// anything. See ShieldActionExtension.handleLimit: both buttons
+    /// behave identically here.
+    private func reminderShield(group: AppGroup) -> ShieldConfiguration {
+        let task = taskTitle(for: group)
+        let headline = task.map { "Still on \u{201C}\($0)\u{201D}?" } ?? "Quick check-in."
+        return ShieldConfiguration(
+            backgroundBlurStyle: .systemMaterialDark,
+            backgroundColor: bg,
+            icon: FocusUpEmblem.image,
+            title: .init(text: "FocusUp", color: ink),
+            subtitle: .init(text: "\(headline)\nTap Continue to keep using \(group.name).", color: inkDim),
+            primaryButtonLabel: .init(text: "Continue", color: bg),
+            primaryButtonBackgroundColor: cyan,
+            secondaryButtonLabel: .init(text: "Dismiss", color: inkDim)
+        )
+    }
+
+    /// The daily budget is used up -- neither shield button releases
+    /// the app (see ShieldActionExtension), so this deliberately has no
+    /// "unlock" framing. Whether ShieldConfiguration's secondary button
+    /// can be cleanly omitted/hidden per-shield-instance isn't proven on
+    /// this Apple SDK version -- check on device; nil is passed here on
+    /// the assumption it renders as a single-button shield, not a
+    /// mislabeled one.
+    private func lockoutShield(group: AppGroup) -> ShieldConfiguration {
+        ShieldConfiguration(
+            backgroundBlurStyle: .systemMaterialDark,
+            backgroundColor: bg,
+            icon: FocusUpEmblem.image,
+            title: .init(text: "FocusUp", color: ink),
+            subtitle: .init(text: "Daily limit reached for \(group.name).\nIt unlocks again with tomorrow's budget (or its free window, if it has one).", color: inkDim),
+            primaryButtonLabel: .init(text: "Got it", color: bg),
+            primaryButtonBackgroundColor: deadRust,
+            secondaryButtonLabel: nil
+        )
+    }
+
+    private func defaultShield() -> ShieldConfiguration {
+        ShieldConfiguration(
+            backgroundBlurStyle: .systemMaterialDark,
+            backgroundColor: bg,
+            icon: FocusUpEmblem.image,
+            title: .init(text: "FocusUp", color: ink),
+            subtitle: .init(text: "Your quest comes first.\n\(streakLine)", color: inkDim),
             primaryButtonLabel: .init(text: "Open Quest", color: bg),
             primaryButtonBackgroundColor: cyan,
             secondaryButtonLabel: .init(text: "Give up", color: deadRust)
@@ -58,9 +128,9 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
         brandedShield(for: application.token)
     }
     override func configuration(shielding webDomain: WebDomain) -> ShieldConfiguration {
-        brandedShield(for: nil)
+        defaultShield()
     }
     override func configuration(shielding webDomain: WebDomain, in category: ActivityCategory) -> ShieldConfiguration {
-        brandedShield(for: nil)
+        defaultShield()
     }
 }

@@ -6,10 +6,9 @@ import ManagedSettingsUI
 struct HomeView: View {
     @StateObject private var manager = FamilyControlsManager.shared
     @StateObject private var auth = AuthManager.shared
-    @State private var isPickerPresented = false
     @Environment(\.scenePhase) private var scenePhase
-    @State private var intervalHoursText = "0"
-    @State private var intervalMinutesText = "30"
+    @State private var isCreatingGroup = false
+    @State private var editingGroup: AppGroup?
 
     var body: some View {
         ZStack {
@@ -22,7 +21,7 @@ struct HomeView: View {
 
                     if manager.authorizationStatus != .approved {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("FocusUp needs Screen Time permission to block apps until your focus tasks are done. This must be approved for FocusUp to work.")
+                            Text("FocusUp needs Screen Time permission to block or limit apps in your groups. This must be approved for FocusUp to work.")
                                 .font(.footnote)
                                 .foregroundStyle(HunterTheme.textMuted)
 
@@ -34,43 +33,7 @@ struct HomeView: View {
                         }
                     }
 
-                    sealedAppsSection
-
-                    checkInSection
-
-                    HStack(spacing: 12) {
-                        Button {
-                            manager.applyShield()
-                        } label: {
-                            Text("APPLY SEAL")
-                                .font(.system(size: 13, weight: .heavy))
-                                .tracking(1)
-                                .foregroundStyle(HunterTheme.textPrimary)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 46)
-                        }
-                        .buttonStyle(.plain)
-                        .hudPanel()
-                        .shadow(color: HunterTheme.cyan.opacity(0.18), radius: 12)
-                        .disabled(manager.selection.applicationTokens.isEmpty)
-                        .opacity(manager.selection.applicationTokens.isEmpty ? 0.4 : 1)
-
-                        Button {
-                            manager.clearShield()
-                        } label: {
-                            Text("RELEASE")
-                                .font(.system(size: 13, weight: .bold))
-                                .tracking(1)
-                                .foregroundStyle(HunterTheme.textMuted)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 46)
-                        }
-                        .buttonStyle(.plain)
-                        .overlay(Rectangle().strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
-                        .disabled(!manager.isShielded)
-                    }
-
-                    hudStatusRow(label: "Shield requested", value: manager.isShielded ? "ON — verify on device" : "OFF", granted: manager.isShielded)
+                    groupsSection
 
                     hunterLog
 
@@ -80,7 +43,7 @@ struct HomeView: View {
                             .font(.footnote)
                     }
 
-                    Text("This is a feasibility spike, not the FocusUp app. It proves authorization, selection, and shield apply/clear on this device.")
+                    Text("This is a feasibility spike, not the FocusUp app. It proves authorization, group selection, and per-group enforcement apply/clear on this device.")
                         .font(.footnote)
                         .foregroundStyle(HunterTheme.textMuted)
                 }
@@ -92,7 +55,7 @@ struct HomeView: View {
             manager.refreshAuthorizationStatus()
             manager.refreshStats()
             manager.refreshTasks()
-            syncIntervalTextFromManager()
+            manager.refreshGroups()
             manager.requestNotificationPermission()
             if manager.authorizationStatus == .notDetermined {
                 Task { await manager.requestAuthorization() }
@@ -103,7 +66,14 @@ struct HomeView: View {
                 manager.refreshAuthorizationStatus()
                 manager.refreshStats()
                 manager.refreshTasks()
+                manager.refreshGroups()
             }
+        }
+        .sheet(isPresented: $isCreatingGroup) {
+            GroupDetailView(existingGroup: nil)
+        }
+        .sheet(item: $editingGroup) { group in
+            GroupDetailView(existingGroup: group)
         }
         // The "quest cleared" celebration overlay now lives on ContentView,
         // above the TabView, so it still shows up if the user was on a
@@ -150,94 +120,67 @@ struct HomeView: View {
         }
     }
 
-    private var sealedAppsSection: some View {
+    private var groupsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                HUDLabel(text: "Sealed Apps")
+                HUDLabel(text: "Groups")
                 Spacer()
                 Button {
-                    isPickerPresented = true
+                    isCreatingGroup = true
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "plus")
-                        Text("ADD")
+                        Text("ADD APPS")
                     }
                     .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(HunterTheme.cyan)
                 }
                 .buttonStyle(.plain)
                 .disabled(manager.authorizationStatus != .approved)
-                .familyActivityPicker(isPresented: $isPickerPresented, selection: $manager.selection)
-                .onChange(of: manager.selection) { _, _ in manager.saveSelection() }
             }
 
-            if manager.selection.applicationTokens.isEmpty {
-                Text("None selected yet.")
+            if manager.groups.isEmpty {
+                Text("No groups yet. Tap Add Apps to block or limit your first set of apps.")
                     .font(.system(size: 12))
                     .foregroundStyle(HunterTheme.textMuted)
             } else {
-                VStack(alignment: .leading, spacing: 8) {
-                    ForEach(Array(manager.selection.applicationTokens), id: \.self) { token in
-                        HStack {
-                            Label(token)
-                                .labelStyle(.titleAndIcon)
-                                .font(.system(size: 12))
-                            Spacer()
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(HunterTheme.cyan.opacity(0.08))
-                        .overlay(Rectangle().strokeBorder(HunterTheme.cyanDim, lineWidth: 1))
-                        .foregroundStyle(HunterTheme.textPrimary)
+                VStack(spacing: 10) {
+                    ForEach(manager.groups) { group in
+                        GroupCardView(group: group, taskTitle: taskTitle(for: group), status: status(for: group))
+                            .onTapGesture { editingGroup = group }
                     }
                 }
             }
         }
     }
 
-    private var checkInSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HUDLabel(text: "Check-In Interval")
-            Text("Re-shows the block screen after this much actual use of the selected app(s) -- not wall-clock time. Starts automatically when you apply the seal above, and stops when you release it.")
-                .font(.system(size: 10))
-                .foregroundStyle(HunterTheme.textMuted)
-
-            HStack(alignment: .bottom, spacing: 12) {
-                intervalField(label: "HRS", text: $intervalHoursText)
-                intervalField(label: "MIN", text: $intervalMinutesText)
-                Button {
-                    intervalHoursText = "0"
-                    intervalMinutesText = "0"
-                    updateIntervalFromText()
-                } label: {
-                    Text("Quick 30s (demo)")
-                        .font(.system(size: 11))
-                        .foregroundStyle(HunterTheme.cyan)
-                }
-                .buttonStyle(.plain)
-                .disabled(manager.isPeriodicCheckInActive)
-                Spacer()
-            }
-
-            Text(manager.isPeriodicCheckInActive ? "Active — checking in every \(checkInIntervalLabel)." : "Will check in every \(checkInIntervalLabel) once the seal is applied.")
-                .font(.system(size: 10))
-                .foregroundStyle(manager.isPeriodicCheckInActive ? HunterTheme.cyan : HunterTheme.textMuted)
-        }
-        .padding(14)
-        .hudPanel()
+    private func taskTitle(for group: AppGroup) -> String? {
+        guard let taskID = group.taskID else { return nil }
+        return manager.tasks.first { $0.id == taskID }?.title
     }
 
-    private func intervalField(label: String, text: Binding<String>) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label).font(.system(size: 10)).foregroundStyle(HunterTheme.textMuted)
-            TextField("0", text: text)
-                .keyboardType(.numberPad)
-                .multilineTextAlignment(.center)
-                .foregroundStyle(HunterTheme.textPrimary)
-                .frame(width: 60, height: 36)
-                .overlay(Rectangle().strokeBorder(HunterTheme.cyanDim, lineWidth: 1))
-                .disabled(manager.isPeriodicCheckInActive)
-                .onChange(of: text.wrappedValue) { _, _ in updateIntervalFromText() }
+    /// Plain-language status pill per group -- Block groups read as
+    /// blocked/unlocked, Limit groups read by whichever runtime reason
+    /// (if any) currently has their shield up, defaulting to
+    /// "accessible" the rest of the time. `manager.isEnforced` mirrors
+    /// this app's long-standing "requested, not confirmed" caveat: it
+    /// reflects what we last asked the system to do, not verified
+    /// on-device enforcement.
+    private func status(for group: AppGroup) -> (text: String, color: Color) {
+        switch group.rule.kind {
+        case .block:
+            return manager.isEnforced(group)
+                ? ("BLOCKED", HunterTheme.danger)
+                : ("UNLOCKED", HunterTheme.cyan)
+        case .limit:
+            switch GroupRuntimeState.shieldReason(for: group.id) {
+            case .limitBudgetExceeded:
+                return ("LIMIT REACHED", HunterTheme.danger)
+            case .limitReminder:
+                return ("CHECK-IN", HunterTheme.gold)
+            default:
+                return ("ACCESSIBLE", HunterTheme.cyan)
+            }
         }
     }
 
@@ -286,34 +229,73 @@ struct HomeView: View {
         .hudPanel()
     }
 
-    private func updateIntervalFromText() {
-        let hours = Int(intervalHoursText) ?? 0
-        let minutes = Int(intervalMinutesText) ?? 0
-        let total = (hours * 3600) + (minutes * 60)
-        manager.checkInIntervalSeconds = max(total, 30)
-    }
-
-    private func syncIntervalTextFromManager() {
-        let seconds = manager.checkInIntervalSeconds
-        if seconds == 30 {
-            intervalHoursText = "0"
-            intervalMinutesText = "0"
-        } else {
-            intervalHoursText = "\(seconds / 3600)"
-            intervalMinutesText = "\((seconds % 3600) / 60)"
-        }
-    }
-
-    private var checkInIntervalLabel: String {
-        manager.checkInIntervalSeconds == 30 ? "30s (demo)" : "\(manager.checkInIntervalSeconds / 60) min"
-    }
-
     private var authorizationLabel: String {
         switch manager.authorizationStatus {
         case .notDetermined: return "Not requested"
         case .denied: return "Denied"
         case .approved: return "Granted"
         @unknown default: return "Unknown"
+        }
+    }
+}
+
+/// One group's card: app icons, plain-language rule summary, and a
+/// status pill. Tapping anywhere opens it for editing (see HomeView's
+/// `.onTapGesture`).
+private struct GroupCardView: View {
+    let group: AppGroup
+    let taskTitle: String?
+    let status: (text: String, color: Color)
+
+    private let maxIcons = 4
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                appIconsRow
+                Spacer()
+                Text(status.text)
+                    .font(.system(size: 10, weight: .heavy))
+                    .foregroundStyle(HunterTheme.bg)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(status.color)
+            }
+
+            Text(group.name)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(HunterTheme.textPrimary)
+
+            Text(group.summaryText(taskTitle: taskTitle))
+                .font(.system(size: 11))
+                .foregroundStyle(HunterTheme.textMuted)
+        }
+        .padding(14)
+        .hudPanel()
+    }
+
+    private var appIconsRow: some View {
+        let tokens = Array(group.selection.applicationTokens)
+        let shown = tokens.prefix(maxIcons)
+        let overflow = tokens.count - shown.count
+        return HStack(spacing: -6) {
+            ForEach(Array(shown), id: \.self) { token in
+                Label(token)
+                    .labelStyle(.iconOnly)
+                    .frame(width: 28, height: 28)
+                    .background(HunterTheme.bg)
+                    .clipShape(Circle())
+                    .overlay(Circle().strokeBorder(HunterTheme.cyanDim, lineWidth: 1))
+            }
+            if overflow > 0 {
+                Text("+\(overflow)")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(HunterTheme.textMuted)
+                    .frame(width: 28, height: 28)
+                    .background(HunterTheme.bg)
+                    .clipShape(Circle())
+                    .overlay(Circle().strokeBorder(HunterTheme.cyanDim, lineWidth: 1))
+            }
         }
     }
 }

@@ -7,28 +7,28 @@ import Combine
 import UIKit
 import ActivityKit
 
-/// Owns the one fixed ManagedSettingsStore identity for this spike.
-/// Do NOT rename `storeName` later — a renamed store orphans any shields
-/// already applied under the old name (see REVIEW.md, "fixed store identity").
+/// Owns every AppGroup's enforcement. Each group gets its own
+/// ManagedSettingsStore (see GroupIdentity in GroupStore.swift) so a
+/// Block group and a Limit group -- or several of either -- can be
+/// independently active at the same time. Do NOT derive a group's
+/// store/activity names from anything but its `id` (see GroupIdentity's
+/// doc comment); the legacy single fixed store this app used before
+/// groups existed is kept only long enough to migrate off of it, see
+/// runLegacyMigrationIfNeeded below.
 @MainActor
 final class FamilyControlsManager: ObservableObject {
     static let shared = FamilyControlsManager()
 
-    static let storeName = ManagedSettingsStore.Name("com.scottgray.FocusUpSpike.mainStore")
-
-    private let store = ManagedSettingsStore(named: FamilyControlsManager.storeName)
     private let center = AuthorizationCenter.shared
     private let activityCenter = DeviceActivityCenter()
     /// The Dynamic Island / Lock Screen Live Activity for the current
-    /// focus session, if one is running -- see startFocusActivity below.
+    /// focus session, if one is running -- tracks "at least one group
+    /// exists," not any single group's state (Live Activity content
+    /// isn't per-group yet, see startFocusActivity below).
     private var focusActivity: Activity<FocusUpActivityAttributes>?
 
     @Published var authorizationStatus: AuthorizationStatus = .notDetermined
-    @Published var selection = FamilyActivitySelection()
-    // isShielded reflects what we last ASKED the system to do, not confirmed
-    // enforcement. Per REVIEW.md: "store assignments alone are not proof of
-    // enforcement" -- actually tapping the app on-device is the real check.
-    @Published var isShielded = false
+    @Published var groups: [AppGroup] = []
     @Published var lastError: String?
     @Published var completedCount: Int = 0
     @Published var ignoreCount: Int = 0
@@ -36,8 +36,6 @@ final class FamilyControlsManager: ObservableObject {
     @Published var justCompletedStreak: Int?
     @Published var justClearedQuestTitle: String?
     @Published var justCheckedIn = false
-    @Published var checkInIntervalSeconds: Int = 1800
-    @Published var isPeriodicCheckInActive = false
     @Published var tasks: [FocusTask] = []
     @Published var activeTaskID: UUID?
     private var lastKnownCompletedCount: Int = 0
@@ -50,10 +48,11 @@ final class FamilyControlsManager: ObservableObject {
 
     private init() {
         authorizationStatus = center.authorizationStatus
-        loadSelection()
         lastKnownCompletedCount = StatsStore.completedCount
         lastKnownCheckInCount = StatsStore.checkInCount
         refreshTasks()
+        runLegacyMigrationIfNeeded()
+        refreshGroups()
     }
 
     func requestAuthorization() async {
@@ -70,10 +69,9 @@ final class FamilyControlsManager: ObservableObject {
         authorizationStatus = center.authorizationStatus
     }
 
-    /// So the "I finished it" shield button can notify its way back into
-    /// the app (extensions can't open the host app directly -- see
-    /// ShieldActionExtension). Safe to call repeatedly; the system only
-    /// prompts once.
+    /// So a shield's own buttons can notify their way back into the app
+    /// (extensions can't open the host app directly). Safe to call
+    /// repeatedly; the system only prompts once.
     func requestNotificationPermission() {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
@@ -114,23 +112,17 @@ final class FamilyControlsManager: ObservableObject {
 
     // MARK: - Tasks
 
-    /// Re-reads tasks from the shared App Group store. Needed because the
-    /// ShieldActionExtension (a separate process) can check off the
-    /// active task on its own -- call this whenever the app becomes
-    /// active so a completion made from the block screen shows up here.
+    /// Re-reads tasks from the shared App Group store. Needed because
+    /// ShieldActionExtension (a separate process) can complete tasks on
+    /// its own -- call this whenever the app becomes active.
     func refreshTasks() {
         tasks = TaskStore.loadTasks()
         activeTaskID = TaskStore.activeTaskID
-        // Covers first launch (nothing picked yet) and the case where
-        // every task got deleted/finished and new ones were added
-        // elsewhere -- always leave SOME task active if one exists.
         if activeTaskID == nil {
             activeTaskID = TaskStore.advanceActiveTask(using: tasks)
         }
     }
 
-    /// dueDate is optional -- "none" is a valid, explicit choice, and
-    /// undated tasks are treated as least urgent by the auto-picker.
     func addTask(title: String, dueDate: Date? = nil) {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -139,9 +131,6 @@ final class FamilyControlsManager: ObservableObject {
         updated.append(newTask)
         tasks = updated
         TaskStore.saveTasks(updated)
-        // Only auto-pick when nothing is active yet -- an already-active
-        // task (auto-picked or manually overridden) stays put until it's
-        // completed, even if this new task is due sooner.
         if activeTaskID == nil {
             activeTaskID = TaskStore.advanceActiveTask(using: updated)
         }
@@ -154,160 +143,255 @@ final class FamilyControlsManager: ObservableObject {
             .map { $0.element }
         tasks = updated
         TaskStore.saveTasks(updated)
+        for id in removedIDs {
+            GroupStore.unlinkGroups(fromDeletedTask: id)
+        }
         if let activeTaskID, removedIDs.contains(activeTaskID) {
             self.activeTaskID = TaskStore.advanceActiveTask(using: updated)
         }
+        refreshGroups()
     }
 
-    /// Checking off the currently-active task from here (not the shield)
-    /// auto-advances the same way the shield's "I finished it" does, so
-    /// the two paths behave identically.
+    /// Checking off a task from here (not a shield) releases every
+    /// Block-rule group linked to it too, same as tapping a Block
+    /// shield's primary button does from ShieldActionExtension.
     func toggleTaskCompletion(_ task: FocusTask) {
         guard let idx = tasks.firstIndex(where: { $0.id == task.id }) else { return }
         tasks[idx].isCompleted.toggle()
         TaskStore.saveTasks(tasks)
+        if tasks[idx].isCompleted {
+            GroupStore.unshieldGroups(linkedToCompletedTask: task.id)
+            refreshGroups()
+        }
         if tasks[idx].isCompleted && activeTaskID == task.id {
             activeTaskID = TaskStore.advanceActiveTask(using: tasks)
         }
     }
 
-    /// Manual override: picking a task here always wins over the
-    /// due-date auto-pick, immediately, and it stays active until it's
-    /// completed -- after that, picking goes back to due-date order.
+    /// Manual override for the Tasks tab's own due-date auto-pick;
+    /// unrelated to which task any given group links to.
     func setActiveTask(_ id: UUID?) {
         activeTaskID = id
         TaskStore.activeTaskID = id
-        TaskStore.syncShieldGoalTextToActiveTask()
     }
 
-    // MARK: - Shield
+    // MARK: - Groups
 
-    /// Applying the shield also starts the periodic check-in loop using
-    /// whatever interval is currently configured -- per Scott, these
-    /// shouldn't be two separate actions the user has to remember to hit.
-    func applyShield() {
-        guard !selection.applicationTokens.isEmpty else {
-            lastError = "Select at least one app first."
+    func refreshGroups() {
+        groups = GroupStore.loadGroups()
+    }
+
+    /// True once we've asked the system to shield this group's apps --
+    /// not proof of confirmed on-device enforcement, same caveat this
+    /// app has always used ("store assignments alone are not proof of
+    /// enforcement," see REVIEW.md). For a Limit-rule group this is only
+    /// true while a reminder/lockout shield happens to be up; most of
+    /// the time a Limit group is correctly "not enforced" (accessible).
+    func isEnforced(_ group: AppGroup) -> Bool {
+        ManagedSettingsStore(named: GroupIdentity.storeName(for: group.id)).shield.applications?.isEmpty == false
+    }
+
+    func createGroup(name: String, selection: FamilyActivitySelection, rule: GroupRule, taskID: UUID?) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            lastError = "Give the group a name."
             return
         }
-        let text = activeTask?.title ?? "Finish your focus task in FocusUp to unlock this app."
-        GoalStore.setGoal(text, for: selection.applicationTokens)
-        store.shield.applications = selection.applicationTokens
-        isShielded = true
-        lastError = nil
-        startPeriodicCheckIns()
-        startFocusActivity()
-    }
-
-    func clearShield() {
-        stopPeriodicCheckIns()
-        store.clearAllSettings()
-        isShielded = false
-        endFocusActivity()
-    }
-
-    /// End actions are synchronous on MainActor, preventing overlapping taps.
-    /// Read-back verifies our store, not restrictions imposed by other apps.
-    func finishQuest(expectedID: UUID?) -> Bool {
-        refreshTasks()
-        guard let expectedID, let task = activeTask,
-              task.id == expectedID, !task.isCompleted else {
-            lastError = "Your active quest changed. Review it and try again."
-            return false
-        }
-        guard releaseQuestRestrictions() else { return false }
-        TaskStore.markActiveTaskCompleted()
-        StatsStore.recordCompleted(questTitle: task.title)
-        refreshTasks()
-        refreshStats()
-        return true
-    }
-
-    func endQuestEarly() -> Bool {
-        guard releaseQuestRestrictions() else { return false }
-        StatsStore.recordIgnore()
-        refreshStats()
-        return true
-    }
-
-    private func releaseQuestRestrictions() -> Bool {
-        clearShield()
-        guard store.shield.applications?.isEmpty != false else {
-            isShielded = true
-            lastError = "FocusUp still has restrictions. Please retry ending focus."
-            return false
-        }
-        lastError = nil
-        return true
-    }
-
-    func saveSelection() {
-        SelectionStore.save(selection)
-    }
-
-    private func loadSelection() {
-        guard let saved = SelectionStore.load() else { return }
-        selection = saved
-    }
-
-    // MARK: - Periodic check-ins
-
-    /// Registers a stack of cumulative-usage thresholds (see
-    /// FocusUpActivity) so the DeviceActivityMonitor extension re-shows
-    /// the block screen roughly every `checkInIntervalSeconds` of actual
-    /// use of the selected app(s), even mid-session. New today --
-    /// reliability needs on-device verification.
-    func startPeriodicCheckIns() {
         guard !selection.applicationTokens.isEmpty else {
-            lastError = "Select at least one app first."
+            lastError = "Select at least one app."
             return
         }
-        SelectionStore.save(selection)
+        let wasEmpty = groups.isEmpty
+        let group = AppGroup(name: trimmed, selection: selection, rule: rule, taskID: taskID)
+        var updated = groups
+        updated.append(group)
+        groups = updated
+        GroupStore.saveGroups(updated)
+        activate(group)
+        if wasEmpty { startFocusActivity() }
+    }
 
-        let marks = FocusUpActivity.marks(intervalSeconds: checkInIntervalSeconds)
-        var events: [DeviceActivityEvent.Name: DeviceActivityEvent] = [:]
-        for mark in marks {
-            events[FocusUpActivity.eventName(forMark: mark)] = DeviceActivityEvent(
-                applications: selection.applicationTokens,
-                threshold: FocusUpActivity.components(forSeconds: mark)
+    func updateGroup(_ updated: AppGroup) {
+        guard let existing = GroupStore.group(for: updated.id) else { return }
+        deactivate(existing)
+        var all = groups
+        if let idx = all.firstIndex(where: { $0.id == updated.id }) {
+            all[idx] = updated
+        }
+        groups = all
+        GroupStore.saveGroups(all)
+        activate(updated)
+    }
+
+    func deleteGroup(_ id: UUID) {
+        guard let group = GroupStore.group(for: id) else { return }
+        deactivate(group)
+        let updated = groups.filter { $0.id != id }
+        groups = updated
+        GroupStore.saveGroups(updated)
+        if updated.isEmpty { endFocusActivity() }
+    }
+
+    private func activate(_ group: AppGroup) {
+        switch group.rule.kind {
+        case .block: activateBlock(group)
+        case .limit: activateLimit(group)
+        }
+    }
+
+    /// Mirrors activate(_:) for both rule kinds at once -- clears the
+    /// group's store and stops all four possible DeviceActivityNames
+    /// (stopMonitoring on a name that was never registered is a no-op,
+    /// same defensive pattern the old single-activity code already used)
+    /// so switching a group's rule kind on edit, or deleting it, can
+    /// never leave stale enforcement behind regardless of which kind it
+    /// used to be.
+    private func deactivate(_ group: AppGroup) {
+        ManagedSettingsStore(named: GroupIdentity.storeName(for: group.id)).clearAllSettings()
+        activityCenter.stopMonitoring([
+            GroupIdentity.budgetPreActivityName(for: group.id),
+            GroupIdentity.budgetPostActivityName(for: group.id),
+            GroupIdentity.windowActivityName(for: group.id),
+            GroupIdentity.reminderActivityName(for: group.id)
+        ])
+        GroupRuntimeState.clear(group.id)
+    }
+
+    private func goalText(for group: AppGroup) -> String {
+        if let taskID = group.taskID, let title = tasks.first(where: { $0.id == taskID })?.title, !title.isEmpty {
+            return title
+        }
+        return "Finish your linked quest in FocusUp to unlock this app."
+    }
+
+    private func activateBlock(_ group: AppGroup) {
+        GroupRuntimeState.setShieldReason(.block, for: group.id)
+        GoalStore.setGoal(goalText(for: group), for: group.selection.applicationTokens)
+        ManagedSettingsStore(named: GroupIdentity.storeName(for: group.id)).shield.applications = group.selection.applicationTokens
+        lastError = nil
+    }
+
+    /// See GroupIdentity (GroupStore.swift) for the naming scheme this
+    /// depends on. Built only from primitives this codebase already
+    /// used once for its single global check-in (cumulative
+    /// DeviceActivityEvent thresholds, intervalStart/intervalEnd
+    /// boundaries) -- registering up to four DeviceActivityNames for one
+    /// group is new, untested territory: this app has only ever run
+    /// exactly one at a time before. Needs the device spikes in the plan
+    /// (two simultaneous named stores/activities, a mid-day window
+    /// boundary) before this is trusted, not just this code existing.
+    private func activateLimit(_ group: AppGroup) {
+        let tokens = group.selection.applicationTokens
+        GroupRuntimeState.setExceededToday(false, for: group.id)
+        GroupRuntimeState.setShieldReason(nil, for: group.id)
+        GoalStore.setGoal(goalText(for: group), for: tokens)
+        ManagedSettingsStore(named: GroupIdentity.storeName(for: group.id)).shield.applications = nil
+
+        let dayStart = DateComponents(hour: 0, minute: 0, second: 0)
+        let dayEnd = DateComponents(hour: 23, minute: 59, second: 59)
+        let budgetComponents = GroupActivityMarks.components(forMinutes: group.rule.dailyBudgetMinutes)
+
+        if let window = group.rule.window {
+            // Budget before the window, budget after the window, and the
+            // window itself purely for its start/end boundary callbacks.
+            // Known approximation (documented in the plan, not silently
+            // assumed away): budgetPre and budgetPost reset independently,
+            // so a user could use up to ~2x dailyBudgetMinutes total --
+            // there's no DeviceActivity primitive to share one cumulative
+            // counter across two disjoint schedules.
+            registerActivity(
+                GroupIdentity.budgetPreActivityName(for: group.id),
+                schedule: DeviceActivitySchedule(intervalStart: dayStart, intervalEnd: window.startComponents, repeats: true),
+                events: [GroupIdentity.eventName(groupID: group.id, kind: "budgetPre", mark: group.rule.dailyBudgetMinutes):
+                    DeviceActivityEvent(applications: tokens, threshold: budgetComponents)]
+            )
+            registerActivity(
+                GroupIdentity.budgetPostActivityName(for: group.id),
+                schedule: DeviceActivitySchedule(intervalStart: window.endComponents, intervalEnd: dayEnd, repeats: true),
+                events: [GroupIdentity.eventName(groupID: group.id, kind: "budgetPost", mark: group.rule.dailyBudgetMinutes):
+                    DeviceActivityEvent(applications: tokens, threshold: budgetComponents)]
+            )
+            registerActivity(
+                GroupIdentity.windowActivityName(for: group.id),
+                schedule: DeviceActivitySchedule(intervalStart: window.startComponents, intervalEnd: window.endComponents, repeats: true),
+                events: [:]
+            )
+        } else {
+            registerActivity(
+                GroupIdentity.budgetPreActivityName(for: group.id),
+                schedule: DeviceActivitySchedule(intervalStart: dayStart, intervalEnd: dayEnd, repeats: true),
+                events: [GroupIdentity.eventName(groupID: group.id, kind: "budgetPre", mark: group.rule.dailyBudgetMinutes):
+                    DeviceActivityEvent(applications: tokens, threshold: budgetComponents)]
             )
         }
 
-        let schedule = DeviceActivitySchedule(
-            intervalStart: DateComponents(hour: 0, minute: 0, second: 0),
-            intervalEnd: DateComponents(hour: 23, minute: 59, second: 59),
-            repeats: true
-        )
+        // Reminder cadence only when there's a task to remind about --
+        // an untasked Limit group is just a plain usage cap, nothing to
+        // nag about.
+        if group.taskID != nil {
+            var events: [DeviceActivityEvent.Name: DeviceActivityEvent] = [:]
+            for mark in GroupActivityMarks.marks(intervalMinutes: group.rule.reminderIntervalMinutes) {
+                events[GroupIdentity.eventName(groupID: group.id, kind: "reminder", mark: mark)] =
+                    DeviceActivityEvent(applications: tokens, threshold: GroupActivityMarks.components(forMinutes: mark))
+            }
+            registerActivity(
+                GroupIdentity.reminderActivityName(for: group.id),
+                schedule: DeviceActivitySchedule(intervalStart: dayStart, intervalEnd: dayEnd, repeats: true),
+                events: events
+            )
+        }
 
-        activityCenter.stopMonitoring([FocusUpActivity.name])
+        lastError = nil
+    }
+
+    private func registerActivity(_ name: DeviceActivityName, schedule: DeviceActivitySchedule, events: [DeviceActivityEvent.Name: DeviceActivityEvent]) {
+        activityCenter.stopMonitoring([name])
         do {
-            UserDefaults(suiteName: FocusUpShared.appGroupID)?.set(true, forKey: "focusUp.checkInsEnabled")
-            try activityCenter.startMonitoring(FocusUpActivity.name, during: schedule, events: events)
-            isPeriodicCheckInActive = true
-            lastError = nil
+            try activityCenter.startMonitoring(name, during: schedule, events: events)
         } catch {
-            UserDefaults(suiteName: FocusUpShared.appGroupID)?.set(false, forKey: "focusUp.checkInsEnabled")
-            isPeriodicCheckInActive = false
-            lastError = "Couldn't start check-ins: \(error.localizedDescription)"
+            lastError = "Couldn't start monitoring: \(error.localizedDescription)"
         }
     }
 
-    func stopPeriodicCheckIns() {
-        UserDefaults(suiteName: FocusUpShared.appGroupID)?.set(false, forKey: "focusUp.checkInsEnabled")
+    // MARK: - Legacy migration
+
+    /// One-time move from the single-selection/single-fixed-store model
+    /// this app used before groups existed to one AppGroup. Guarded so
+    /// it only ever runs once; always clears the legacy store/activity
+    /// afterward (whether or not there was anything to migrate) so
+    /// neither can hold an orphaned shield going forward -- see
+    /// REVIEW.md §6.3 and §5.1 for why that's a real risk, not a
+    /// hypothetical one.
+    func runLegacyMigrationIfNeeded() {
+        let flagKey = "focusUp.migratedToGroupsV1"
+        let defaults = UserDefaults(suiteName: FocusUpShared.appGroupID)
+        guard defaults?.bool(forKey: flagKey) != true else { return }
+
+        if GroupStore.loadGroups().isEmpty, let legacy = SelectionStore.load(), !legacy.applicationTokens.isEmpty {
+            let group = AppGroup(
+                name: "My Group",
+                selection: legacy,
+                rule: GroupRule(kind: .block),
+                taskID: TaskStore.activeTaskID
+            )
+            GroupStore.saveGroups([group])
+            activate(group)
+        }
+
+        ManagedSettingsStore(named: FocusUpShared.storeName).clearAllSettings()
         activityCenter.stopMonitoring([FocusUpActivity.name])
-        isPeriodicCheckInActive = false
+        defaults?.set(true, forKey: flagKey)
     }
 
     // MARK: - Live Activity (Dynamic Island / Lock Screen)
 
-    /// Starts the Dynamic Island / Lock Screen Live Activity for the
-    /// focus session that Apply Shield just began. Best-effort: Live
-    /// Activities require the user to have them enabled (Settings ->
-    /// Face ID & Passcode -- or per-app in Settings -> FocusUp) and can
-    /// fail to start for reasons entirely outside our control, so a
-    /// failure here is silent rather than surfaced as a user-facing
-    /// error -- the actual shield is what matters; this is a bonus
-    /// glanceable display on top of it, not a dependency.
+    /// Starts when the first group is created, ends when the last one is
+    /// deleted -- best-effort: Live Activities require the user to have
+    /// them enabled and can fail to start for reasons entirely outside
+    /// our control, so a failure here is silent rather than surfaced as
+    /// a user-facing error. Still shows the global active task + streak,
+    /// not any particular group's state -- representing N simultaneous
+    /// groups here is out of scope for this pass.
     private func startFocusActivity() {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
         endFocusActivity()
@@ -323,18 +407,12 @@ final class FamilyControlsManager: ObservableObject {
         }
     }
 
-    /// Keeps the Live Activity's quest title / streak current -- called
-    /// from refreshStats, which already runs on every relevant change
-    /// (scenePhase becoming active, a completion, a check-in).
     private func updateFocusActivity() {
         guard let focusActivity else { return }
         let state = FocusUpActivityAttributes.ContentState(questTitle: activeTask?.title, streak: currentStreak)
         Task { await focusActivity.update(ActivityContent(state: state, staleDate: nil)) }
     }
 
-    /// Ends the Live Activity immediately -- called from clearShield,
-    /// which every release path (finishQuest, endQuestEarly) already
-    /// routes through via releaseQuestRestrictions.
     private func endFocusActivity() {
         guard let focusActivity else { return }
         Task { await focusActivity.end(nil, dismissalPolicy: .immediate) }

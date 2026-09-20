@@ -17,7 +17,7 @@ Your responsibilities are to review Codex's implementation, find bugs and edge c
 - Do not commit secrets, signing assets, or personal device data.
 
 ## Current phase
-This repository is in documentation and planning setup. Do not create or modify application code or an Xcode project until the user asks to begin implementation. Let Xcode on the Mac create the initial iOS project.
+Implementation is underway. `FocusUpSpike/` is a working Xcode project (main app plus `ShieldConfigurationExtension`, `ShieldActionExtension`, `DeviceActivityMonitorExtension`, and the `FocusUpActivity` Live Activity widget) with real Family Controls / ManagedSettings enforcement: goal and task creation, app-selection authorization, shield apply/clear, emergency override (shield "Give up"), periodic check-ins, streaks, and onboarding/auth are already implemented. Review and extend this project directly — the earlier documentation-only gate no longer applies. See `FEASIBILITY.md` for the platform-feasibility evidence and `TEAM_CHAT.md`/`REVIEW.md` for the pre-implementation planning history.
 
 ## Primary MVP
 Create goal → select distracting apps → Start Focus → selected apps are blocked → complete goal → apps become available again.

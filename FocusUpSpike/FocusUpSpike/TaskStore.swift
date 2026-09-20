@@ -85,42 +85,32 @@ enum TaskStore {
         return incomplete.first
     }
 
-    /// Auto-advances the active task to whatever autoPickNextTask picks
-    /// and keeps the block screen's goal text in sync (in case a shield
-    /// is already up -- otherwise the NEXT block screen would still show
-    /// the task that just got finished). This is the "no manual pick"
-    /// path; an explicit override from the Tasks list goes straight
-    /// through the activeTaskID setter instead and is left alone here.
+    /// Auto-advances the active task to whatever autoPickNextTask picks.
+    /// This is the "no manual pick" path; an explicit override from the
+    /// Tasks list goes straight through the activeTaskID setter instead
+    /// and is left alone here. (Before groups existed, this also kept a
+    /// single global shield's goal text in sync -- that's now each
+    /// group's own responsibility, since a group's linked task and the
+    /// due-date-auto-picked "active" task are independent concepts.)
     @discardableResult
     static func advanceActiveTask(using tasks: [FocusTask]) -> UUID? {
         let next = autoPickNextTask(from: tasks)?.id
         activeTaskID = next
-        syncShieldGoalTextToActiveTask()
         return next
     }
 
-    /// Re-points the goal text shown on the block screen at whichever
-    /// task is active right now, for whatever app(s) are currently
-    /// selected. Safe to call even when nothing is selected/shielded --
-    /// it's just a no-op then.
-    static func syncShieldGoalTextToActiveTask() {
-        guard let selection = SelectionStore.load(), !selection.applicationTokens.isEmpty else { return }
-        let text = activeTask?.title ?? "Finish your focus task in FocusUp to unlock this app."
-        GoalStore.setGoal(text, for: selection.applicationTokens)
-    }
-
-    /// Called from the ShieldActionExtension when the user taps
-    /// "I finished it". The extension can't open FocusUp directly to let
-    /// the user check the task off themselves (Apple blocks that from
-    /// this extension type), so this checks it off on their behalf, then
-    /// auto-advances to whichever task is next by due date so the very
-    /// next block screen already shows the right thing.
-    static func markActiveTaskCompleted() {
-        guard let id = activeTaskID else { return }
+    /// Marks a SPECIFIC task complete, regardless of whether it's the
+    /// globally "active" one shown on the Tasks tab -- a group's linked
+    /// task can be any task, not just the auto-picked active one. Only
+    /// auto-advances the active task if the completed one happened to be
+    /// it.
+    static func markTaskCompleted(id: UUID) {
         var tasks = loadTasks()
         guard let idx = tasks.firstIndex(where: { $0.id == id }) else { return }
         tasks[idx].isCompleted = true
         saveTasks(tasks)
-        advanceActiveTask(using: tasks)
+        if activeTaskID == id {
+            advanceActiveTask(using: tasks)
+        }
     }
 }
