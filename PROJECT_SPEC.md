@@ -4,12 +4,14 @@
 FocusUp is an iPhone productivity app that restricts user-selected distracting apps during a goal-focused session and restores access when the user completes the goal. The career-fair deliverable is a small, reliable demonstration on the user's physical iPhone.
 
 ## Current phase and delivery plan
-This change establishes documentation only. Create the initial iOS project with Xcode on the Mac when implementation is requested. Do not generate application code during repository setup.
+Implementation is underway in `FocusUpSpike/` (an Xcode project created on the Mac, per the original plan). The core goal → block → complete workflow, emergency override, task list, streaks, periodic check-ins, and onboarding/auth are implemented; see the Acceptance checklist below for what still needs on-device verification.
 
 The intended demo installation route is directly from Xcode to the user's iPhone. TestFlight and App Store release are outside this MVP. The earlier planning target was a Sunday-ready build for a Tuesday career fair; confirm actual dates before scheduling work.
 
 ## First milestone: prove platform feasibility
-Before building the full UI, verify current Apple requirements and test the selected Apple account, signing team, device, OS, and Xcode combination. Do not assume free Personal Team provisioning supports the necessary blocking capabilities.
+Status: complete. `FEASIBILITY.md` records the verified environment (paid signing team, physical iPhone, `Family Controls (Development)` capability) and confirms the app installs, launches, and runs on the demo hardware. The requirements below are kept as a record of what was verified and as a reference for testing on any new device/account combination.
+
+Verify current Apple requirements and test the selected Apple account, signing team, device, OS, and Xcode combination. Do not assume free Personal Team provisioning supports the necessary blocking capabilities.
 
 The feasibility experiment must install and launch on the physical iPhone, request the appropriate user authorization, select a distracting app, apply a real system restriction, and remove that restriction. Record the environment, entitlement/signing results, and observed behavior.
 

@@ -4,7 +4,7 @@
 Codex is the primary implementation engineer for FocusUp. Claude Code is the secondary engineer, reviewer, and debugger; its role is defined in CLAUDE.md. Read PROJECT_SPEC.md as the product specification before starting work.
 
 ## Current phase
-Only repository instructions and planning are authorized at setup. Preserve existing files. Do not create or modify application code, scaffold an iOS project, or hand-author Xcode project files until the user asks to begin implementation. The initial iOS project should be created in Xcode on the Mac.
+Implementation is underway. `FocusUpSpike/` is a working Xcode project (main app plus `ShieldConfigurationExtension`, `ShieldActionExtension`, `DeviceActivityMonitorExtension`, and the `FocusUpActivity` Live Activity widget) with real Family Controls / ManagedSettings enforcement already implemented: goal/task creation, app-selection authorization, shield apply/clear, emergency override, periodic check-ins, streaks, and onboarding/auth. Continue building on this project directly. See `FEASIBILITY.md` for the platform-feasibility evidence recorded during the initial spike.
 
 ## Implementation priorities
 1. Prove signing, installation, authorization, blocking, and unblocking on the actual iPhone with the selected Apple account.
