@@ -14,20 +14,23 @@ import UserNotifications
 ///   the previous single-store implementation only released the tapped
 ///   app; this fixes that to match the documented behavior). Secondary
 ///   ("give up") still only releases the one app being looked at.
-/// - Limit reminder nudge: either button just dismisses it -- no task
-///   completion, no ignore recorded.
+/// - Limit reminder nudge: either button dismisses it and returns
+///   `.none` (not `.close`), which drops the user back into the app
+///   they were already using instead of kicking them out -- no task
+///   completion, no ignore recorded, just a dismissed nudge.
 /// - Limit budget-exceeded lockout: neither button releases the app --
 ///   the token is deliberately left in the store so the restriction
 ///   survives the tap. This is the one behavior in this file that's
 ///   unverified on-device; confirm it before relying on it for the demo.
 ///
-/// Note on "why a notification, not opening the app directly": there is
-/// no supported way to open/foreground the host app from this extension
-/// -- checked directly against Apple's own ShieldActionResponse cases
-/// (.none / .defer / .close only; no case exists for opening the host
-/// or parent app in any shipped SDK). A local notification is the
-/// closest equivalent: tapping IT is a real user action, so iOS is
-/// allowed to launch FocusUp from that tap.
+/// Note on "why a notification, not opening the app directly" for the
+/// Block/give-up paths (which DO use `.close`, unlike the reminder
+/// above): there is no supported way to open/foreground the host app
+/// from this extension -- checked directly against Apple's own
+/// ShieldActionResponse cases (.none / .defer / .close only; no case
+/// exists for opening the host or parent app in any shipped SDK). A
+/// local notification is the closest equivalent: tapping IT is a real
+/// user action, so iOS is allowed to launch FocusUp from that tap.
 class ShieldActionExtension: ShieldActionDelegate {
     override func handle(action: ShieldAction, for application: ApplicationToken, completionHandler: @escaping (ShieldActionResponse) -> Void) {
         guard let group = GroupStore.group(containing: application) else {
@@ -111,13 +114,16 @@ class ShieldActionExtension: ShieldActionDelegate {
         default:
             // .limitReminder (or an unexpected nil) -- just a nudge,
             // dismiss it without recording completion or ignore. The
-            // next reminder mark will reshield it.
+            // next reminder mark will reshield it. .none (not .close)
+            // is what drops the user back into the app they were
+            // already using, rather than kicking them out to the home
+            // screen -- "Continue" should actually continue.
             let store = ManagedSettingsStore(named: GroupIdentity.storeName(for: group.id))
             var apps = store.shield.applications ?? []
             apps.remove(application)
             store.shield.applications = apps
             GroupRuntimeState.setShieldReason(nil, for: group.id)
-            completionHandler(.close)
+            completionHandler(.none)
         }
     }
 
