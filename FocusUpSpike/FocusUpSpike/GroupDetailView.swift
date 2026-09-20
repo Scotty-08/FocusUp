@@ -18,10 +18,9 @@ struct GroupDetailView: View {
     @State private var name: String
     @State private var selection: FamilyActivitySelection
     @State private var ruleKind: RuleKind
+    @State private var hasDailyLimit: Bool
     @State private var dailyBudgetMinutes: Int
-    @State private var hasWindow: Bool
-    @State private var windowStart: Date
-    @State private var windowEnd: Date
+    @State private var windows: [ScheduleWindow]
     @State private var reminderIntervalMinutes: Int
     @State private var taskID: UUID?
     @State private var isPickerPresented = false
@@ -30,14 +29,12 @@ struct GroupDetailView: View {
     init(existingGroup: AppGroup?) {
         self.existingGroup = existingGroup
         let rule = existingGroup?.rule
-        let window = rule?.window
         _name = State(initialValue: existingGroup?.name ?? "")
         _selection = State(initialValue: existingGroup?.selection ?? FamilyActivitySelection())
         _ruleKind = State(initialValue: rule?.kind ?? .block)
+        _hasDailyLimit = State(initialValue: rule?.dailyBudgetMinutes != nil)
         _dailyBudgetMinutes = State(initialValue: rule?.dailyBudgetMinutes ?? 30)
-        _hasWindow = State(initialValue: window != nil)
-        _windowStart = State(initialValue: Self.date(hour: window?.startHour ?? 10, minute: window?.startMinute ?? 0))
-        _windowEnd = State(initialValue: Self.date(hour: window?.endHour ?? 12, minute: window?.endMinute ?? 0))
+        _windows = State(initialValue: rule?.windows ?? [])
         _reminderIntervalMinutes = State(initialValue: rule?.reminderIntervalMinutes ?? 5)
         _taskID = State(initialValue: existingGroup?.taskID)
     }
@@ -143,7 +140,7 @@ struct GroupDetailView: View {
             HUDLabel(text: "Rule")
             HStack(spacing: 10) {
                 ruleKindButton(.block, title: "Block", subtitle: "Fully inaccessible until the quest is done.")
-                ruleKindButton(.limit, title: "Limit", subtitle: "Accessible with a daily cap.")
+                ruleKindButton(.limit, title: "Limit", subtitle: "Accessible, with reminders and an optional daily cap.")
             }
 
             if ruleKind == .limit {
@@ -177,32 +174,25 @@ struct GroupDetailView: View {
     private var limitOptions: some View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("DAILY BUDGET: \(dailyBudgetMinutes) MIN")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(HunterTheme.textMuted)
-                Stepper("", value: $dailyBudgetMinutes, in: 5...480, step: 5)
-                    .labelsHidden()
-                    .colorScheme(.dark)
-            }
-
-            VStack(alignment: .leading, spacing: 6) {
-                Toggle(isOn: $hasWindow.animation()) {
-                    Text("Free access window")
+                Toggle(isOn: $hasDailyLimit.animation()) {
+                    Text("Daily limit")
                         .font(.system(size: 11))
                         .foregroundStyle(HunterTheme.textMuted)
                 }
                 .toggleStyle(.switch)
                 .tint(HunterTheme.cyan)
 
-                if hasWindow {
-                    HStack(spacing: 16) {
-                        DatePicker("From", selection: $windowStart, displayedComponents: .hourAndMinute)
-                        DatePicker("To", selection: $windowEnd, displayedComponents: .hourAndMinute)
-                    }
-                    .font(.system(size: 12))
-                    .foregroundStyle(HunterTheme.textPrimary)
-                    .colorScheme(.dark)
-                    Text("No limits apply during this window, regardless of the daily budget above. Outside it, the budget tracks separately before and after the window.")
+                if hasDailyLimit {
+                    Text("BUDGET: \(dailyBudgetMinutes) MIN/DAY")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(HunterTheme.textMuted)
+                    Stepper("", value: $dailyBudgetMinutes, in: 5...480, step: 5)
+                        .labelsHidden()
+                        .colorScheme(.dark)
+
+                    windowsEditor
+                } else {
+                    Text("Apps stay accessible all day, with no automatic lockout -- just reminders below, if a quest is linked.")
                         .font(.system(size: 10))
                         .foregroundStyle(HunterTheme.textMuted)
                 }
@@ -215,6 +205,55 @@ struct GroupDetailView: View {
                 Stepper("", value: $reminderIntervalMinutes, in: 1...60, step: 1)
                     .labelsHidden()
                     .colorScheme(.dark)
+            }
+        }
+    }
+
+    /// Only shown when a daily limit is set -- windows are exceptions to
+    /// a budget, so they're meaningless (and not registered, see
+    /// FamilyControlsManager.activateLimit) without one.
+    private var windowsEditor: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("FREE-ACCESS WINDOWS")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(HunterTheme.textMuted)
+            Text("No limits apply during these windows, regardless of the budget above. Outside them, the budget tracks separately in each remaining gap between windows -- more windows means more separately-resetting budgets, not one shared total.")
+                .font(.system(size: 10))
+                .foregroundStyle(HunterTheme.textMuted)
+
+            ForEach($windows) { $window in
+                HStack(spacing: 12) {
+                    DatePicker("From", selection: $window.startDate, displayedComponents: .hourAndMinute)
+                    DatePicker("To", selection: $window.endDate, displayedComponents: .hourAndMinute)
+                    Button {
+                        windows.removeAll { $0.id == window.id }
+                    } label: {
+                        Image(systemName: "minus.circle.fill")
+                            .foregroundStyle(HunterTheme.danger)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .font(.system(size: 12))
+                .foregroundStyle(HunterTheme.textPrimary)
+                .colorScheme(.dark)
+            }
+
+            if windows.count < GroupRule.maxWindows {
+                Button {
+                    windows.append(ScheduleWindow(startHour: 10, startMinute: 0, endHour: 12, endMinute: 0))
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "plus")
+                        Text("ADD WINDOW")
+                    }
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(HunterTheme.cyan)
+                }
+                .buttonStyle(.plain)
+            } else {
+                Text("Up to \(GroupRule.maxWindows) windows.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(HunterTheme.textMuted)
             }
         }
     }
@@ -291,10 +330,11 @@ struct GroupDetailView: View {
     }
 
     private func save() {
+        let usesDailyLimit = ruleKind == .limit && hasDailyLimit
         let rule = GroupRule(
             kind: ruleKind,
-            dailyBudgetMinutes: dailyBudgetMinutes,
-            window: (ruleKind == .limit && hasWindow) ? windowFromPickers : nil,
+            dailyBudgetMinutes: usesDailyLimit ? dailyBudgetMinutes : nil,
+            windows: usesDailyLimit ? windows : [],
             reminderIntervalMinutes: reminderIntervalMinutes
         )
         if let existingGroup {
@@ -314,20 +354,30 @@ struct GroupDetailView: View {
         }
     }
 
-    private var windowFromPickers: ScheduleWindow {
-        let calendar = Calendar.current
-        let startComps = calendar.dateComponents([.hour, .minute], from: windowStart)
-        let endComps = calendar.dateComponents([.hour, .minute], from: windowEnd)
-        return ScheduleWindow(
-            startHour: startComps.hour ?? 10,
-            startMinute: startComps.minute ?? 0,
-            endHour: endComps.hour ?? 12,
-            endMinute: endComps.minute ?? 0
-        )
+}
+
+/// Bridges ScheduleWindow's stored hour/minute ints to Date, purely for
+/// binding to DatePicker in the windows editor above -- the model itself
+/// stays hour/minute-based (see GroupStore.swift) since that's all
+/// DeviceActivitySchedule actually needs; this is a UI-only convenience,
+/// not shared with the extensions.
+private extension ScheduleWindow {
+    var startDate: Date {
+        get { Calendar.current.date(bySettingHour: startHour, minute: startMinute, second: 0, of: Date()) ?? Date() }
+        set {
+            let c = Calendar.current.dateComponents([.hour, .minute], from: newValue)
+            startHour = c.hour ?? startHour
+            startMinute = c.minute ?? startMinute
+        }
     }
 
-    private static func date(hour: Int, minute: Int) -> Date {
-        Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: Date()) ?? Date()
+    var endDate: Date {
+        get { Calendar.current.date(bySettingHour: endHour, minute: endMinute, second: 0, of: Date()) ?? Date() }
+        set {
+            let c = Calendar.current.dateComponents([.hour, .minute], from: newValue)
+            endHour = c.hour ?? endHour
+            endMinute = c.minute ?? endMinute
+        }
     }
 }
 
