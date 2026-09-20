@@ -183,41 +183,64 @@ struct GroupDetailView: View {
                 .tint(HunterTheme.cyan)
 
                 if hasDailyLimit {
-                    Text("BUDGET: \(dailyBudgetMinutes) MIN/DAY")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(HunterTheme.textMuted)
-                    Stepper("", value: $dailyBudgetMinutes, in: 5...480, step: 5)
-                        .labelsHidden()
-                        .colorScheme(.dark)
-
-                    windowsEditor
+                    numberField(label: "Daily budget", value: $dailyBudgetMinutes, suffix: "min/day", range: 5...480)
                 } else {
-                    Text("Apps stay accessible all day, with no automatic lockout -- just reminders below, if a quest is linked.")
+                    Text("Apps stay accessible with no automatic lockout -- just reminders below.")
                         .font(.system(size: 10))
                         .foregroundStyle(HunterTheme.textMuted)
                 }
             }
 
-            VStack(alignment: .leading, spacing: 6) {
-                Text("REMIND EVERY \(reminderIntervalMinutes) MIN (IF A QUEST IS LINKED)")
-                    .font(.system(size: 10, weight: .bold))
+            windowsEditor
+
+            numberField(label: "Remind every", value: $reminderIntervalMinutes, suffix: "min of use", range: 1...60)
+            Text("Apps stay accessible the whole time -- this just brings up a dismissable check-in, never a lock, unless the daily budget above runs out.")
+                .font(.system(size: 10))
+                .foregroundStyle(HunterTheme.textMuted)
+        }
+    }
+
+    /// Typable numeric entry (as opposed to a tap-to-increment Stepper).
+    /// Clamps to `range` as soon as a keystroke parses to a value outside
+    /// it -- an empty or partially-typed field doesn't push anything to
+    /// the binding yet, so ordinary typing is unaffected; only a value
+    /// that actually lands out of range snaps back.
+    private func numberField(label: String, value: Binding<Int>, suffix: String, range: ClosedRange<Int>) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label.uppercased())
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(HunterTheme.textMuted)
+            HStack(spacing: 8) {
+                TextField("", value: value, format: .number)
+                    .keyboardType(.numberPad)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(HunterTheme.textPrimary)
+                    .frame(width: 64, height: 36)
+                    .overlay(Rectangle().strokeBorder(HunterTheme.cyanDim, lineWidth: 1))
+                    .onChange(of: value.wrappedValue) { _, newValue in
+                        let clamped = min(max(newValue, range.lowerBound), range.upperBound)
+                        if clamped != newValue { value.wrappedValue = clamped }
+                    }
+                Text(suffix)
+                    .font(.system(size: 11))
                     .foregroundStyle(HunterTheme.textMuted)
-                Stepper("", value: $reminderIntervalMinutes, in: 1...60, step: 1)
-                    .labelsHidden()
-                    .colorScheme(.dark)
             }
         }
     }
 
-    /// Only shown when a daily limit is set -- windows are exceptions to
-    /// a budget, so they're meaningless (and not registered, see
-    /// FamilyControlsManager.activateLimit) without one.
+    /// Available regardless of whether a daily limit is set -- a window
+    /// always means fully free, no reminders, no budget tracking. With a
+    /// daily limit, they're exceptions carved out of the budget; without
+    /// one, they're just extra-protected quiet time on top of the
+    /// always-accessible-with-reminders default.
     private var windowsEditor: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("FREE-ACCESS WINDOWS")
                 .font(.system(size: 10, weight: .bold))
                 .foregroundStyle(HunterTheme.textMuted)
-            Text("No limits apply during these windows, regardless of the budget above. Outside them, the budget tracks separately in each remaining gap between windows -- more windows means more separately-resetting budgets, not one shared total.")
+            Text(hasDailyLimit
+                 ? "No limits or reminders during these windows, regardless of the budget above. Outside them, the budget tracks separately in each remaining gap -- more windows means more separately-resetting budgets, not one shared total."
+                 : "No reminders during these windows. Outside them, the normal reminder check-ins apply.")
                 .font(.system(size: 10))
                 .foregroundStyle(HunterTheme.textMuted)
 
@@ -330,11 +353,11 @@ struct GroupDetailView: View {
     }
 
     private func save() {
-        let usesDailyLimit = ruleKind == .limit && hasDailyLimit
+        let isLimit = ruleKind == .limit
         let rule = GroupRule(
             kind: ruleKind,
-            dailyBudgetMinutes: usesDailyLimit ? dailyBudgetMinutes : nil,
-            windows: usesDailyLimit ? windows : [],
+            dailyBudgetMinutes: (isLimit && hasDailyLimit) ? dailyBudgetMinutes : nil,
+            windows: isLimit ? windows : [],
             reminderIntervalMinutes: reminderIntervalMinutes
         )
         if let existingGroup {

@@ -4,13 +4,16 @@ import ManagedSettings
 import DeviceActivity
 
 /// One user-defined window of the day during which a Limit-rule group's
-/// apps are always accessible, regardless of its daily budget. A group
-/// can have several (see GroupRule.maxWindows) -- each additional window
-/// splits the rest of the day into more disjoint budget-tracking
-/// segments, each with its own independently-resetting cumulative
-/// counter (see activateLimit in FamilyControlsManager.swift for why
-/// that's an accepted approximation, not a bug, and why the window count
-/// is capped rather than unlimited).
+/// apps are always accessible. A group can have several (see
+/// GroupRule.maxWindows). What happens OUTSIDE the windows depends on
+/// whether the group also has a daily budget (see GroupRule's doc
+/// comment): with one, each additional window splits the rest of the
+/// day into more disjoint budget-tracking segments, each with its own
+/// independently-resetting cumulative counter (see activateLimit in
+/// FamilyControlsManager.swift for why that's an accepted approximation,
+/// not a bug, and why the window count is capped rather than unlimited);
+/// without one, windows work standalone as a pure access schedule --
+/// accessible only inside them, blocked outside.
 struct ScheduleWindow: Identifiable, Codable, Equatable {
     var id: UUID = UUID()
     var startHour: Int
@@ -28,6 +31,22 @@ struct ScheduleWindow: Identifiable, Codable, Equatable {
         let formatter = DateFormatter()
         formatter.dateFormat = "h:mm a"
         return "\(formatter.string(from: start))\u{2013}\(formatter.string(from: end))"
+    }
+
+    /// Whether `date`'s time-of-day (ignoring the actual calendar day)
+    /// falls inside this window. Used only to compute the CORRECT
+    /// initial shield state at activation time, in case "now" already
+    /// falls inside or outside a window before any DeviceActivity
+    /// interval callback has fired -- those callbacks aren't guaranteed
+    /// to fire retroactively for an interval already in progress at
+    /// registration time (unverified platform behavior, see the plan).
+    func contains(_ date: Date) -> Bool {
+        let comps = Calendar.current.dateComponents([.hour, .minute], from: date)
+        guard let hour = comps.hour, let minute = comps.minute else { return false }
+        let minuteOfDay = hour * 60 + minute
+        let start = startHour * 60 + startMinute
+        let end = endHour * 60 + endMinute
+        return minuteOfDay >= start && minuteOfDay < end
     }
 }
 
