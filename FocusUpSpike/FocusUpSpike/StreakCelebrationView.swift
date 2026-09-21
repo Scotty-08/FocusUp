@@ -16,6 +16,9 @@ import SwiftUI
 struct StreakCelebrationView: View {
     let streak: Int
     let questTitle: String?
+    /// What this completion paid out; nil when the quest had already
+    /// paid out before (nothing new to show).
+    var reward: QuestReward? = nil
     var onDismiss: () -> Void
     var onViewQuestLog: () -> Void
 
@@ -25,7 +28,7 @@ struct StreakCelebrationView: View {
     var body: some View {
         ZStack {
             Color.black.opacity(0.92).ignoresSafeArea()
-            RadialGradient(colors: [HunterTheme.gold.opacity(0.14), .clear], center: .center, startRadius: 10, endRadius: 260)
+            RadialGradient(colors: [PlayerTheme.gold.opacity(0.14), .clear], center: .center, startRadius: 10, endRadius: 260)
                 .ignoresSafeArea()
                 .onTapGesture { dismiss() }
 
@@ -37,7 +40,7 @@ struct StreakCelebrationView: View {
                     } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(HunterTheme.textMuted)
+                            .foregroundStyle(PlayerTheme.textMuted)
                             .frame(width: 32, height: 32)
                     }
                     .buttonStyle(.plain)
@@ -48,44 +51,62 @@ struct StreakCelebrationView: View {
                 Spacer()
 
                 VStack(spacing: 16) {
-                    Text("LEVEL UP")
+                    Text(reward?.newLevel != nil ? "LEVEL UP" : "STREAK UP")
                         .font(.system(size: 12, weight: .heavy))
                         .tracking(4)
-                        .foregroundStyle(HunterTheme.gold)
-                        .shadow(color: HunterTheme.gold.opacity(0.8), radius: 10)
+                        .foregroundStyle(PlayerTheme.gold)
+                        .shadow(color: PlayerTheme.gold.opacity(0.8), radius: 10)
 
                     ZStack {
                         FireAura(diameter: 110)
                         Image(systemName: "flame.fill")
                             .font(.system(size: 46))
-                            .foregroundStyle(HunterTheme.gold)
-                            .shadow(color: HunterTheme.gold.opacity(0.85), radius: 14)
+                            .foregroundStyle(PlayerTheme.gold)
+                            .shadow(color: PlayerTheme.gold.opacity(0.85), radius: 14)
                     }
                     .frame(width: 88, height: 88)
 
                     VStack(spacing: 4) {
                         Text("\(streak)")
                             .font(.system(size: 62, weight: .heavy))
-                            .foregroundStyle(HunterTheme.gold)
-                            .shadow(color: HunterTheme.gold.opacity(0.7), radius: 22)
+                            .foregroundStyle(PlayerTheme.gold)
+                            .shadow(color: PlayerTheme.gold.opacity(0.7), radius: 22)
                         Text("DAY STREAK")
                             .font(.system(size: 12, weight: .bold))
                             .tracking(2)
-                            .foregroundStyle(HunterTheme.gold.opacity(0.85))
+                            .foregroundStyle(PlayerTheme.gold.opacity(0.85))
                     }
 
                     VStack(spacing: 4) {
                         Text("Quest Cleared")
                             .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(HunterTheme.textPrimary)
+                            .foregroundStyle(PlayerTheme.textPrimary)
                         if let questTitle, !questTitle.isEmpty {
                             Text(questTitle)
                                 .font(.system(size: 13))
-                                .foregroundStyle(HunterTheme.textMuted)
+                                .foregroundStyle(PlayerTheme.textMuted)
                                 .multilineTextAlignment(.center)
                         }
                     }
                     .padding(.top, 4)
+
+                    if let reward {
+                        VStack(spacing: 6) {
+                            HStack(spacing: 16) {
+                                Text("+\(reward.xp) EXP")
+                                    .foregroundStyle(PlayerTheme.cyan)
+                                Text("+\(reward.coins) COINS")
+                                    .foregroundStyle(PlayerTheme.gold)
+                            }
+                            .font(.system(size: 13, weight: .heavy))
+                            if let newLevel = reward.newLevel {
+                                Text("YOU REACHED LEVEL \(newLevel)")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .tracking(1.5)
+                                    .foregroundStyle(PlayerTheme.gold)
+                            }
+                        }
+                    }
                 }
                 .padding(.horizontal, 32)
 
@@ -97,12 +118,12 @@ struct StreakCelebrationView: View {
                     } label: {
                         Text("Continue")
                             .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(HunterTheme.bg)
+                            .foregroundStyle(PlayerTheme.bg)
                             .frame(maxWidth: .infinity)
                             .frame(height: 54)
-                            .background(HunterTheme.cyan)
+                            .background(PlayerTheme.cyan)
                             .clipShape(Capsule())
-                            .shadow(color: HunterTheme.cyan.opacity(0.35), radius: 14)
+                            .shadow(color: PlayerTheme.cyan.opacity(0.35), radius: 14)
                     }
                     .buttonStyle(.plain)
 
@@ -111,7 +132,7 @@ struct StreakCelebrationView: View {
                     } label: {
                         Text("View Quest Log")
                             .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(HunterTheme.cyan)
+                            .foregroundStyle(PlayerTheme.cyan)
                             .frame(height: 40)
                     }
                     .buttonStyle(.plain)

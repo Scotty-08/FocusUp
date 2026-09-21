@@ -35,6 +35,10 @@ final class FamilyControlsManager: ObservableObject {
     @Published var currentStreak: Int = 0
     @Published var justCompletedStreak: Int?
     @Published var justClearedQuestTitle: String?
+    /// What the most recent quest completion paid out (EXP/coins/level
+    /// up), shown on the celebration screen; nil if that quest had
+    /// already paid out before (see CharacterStore.rewardQuest).
+    @Published var justEarned: QuestReward?
     @Published var tasks: [FocusTask] = []
     /// Non-nil while the shield-return "did you finish this?" prompt
     /// should be showing (see presentPressingQuestCheckIn/
@@ -88,6 +92,7 @@ final class FamilyControlsManager: ObservableObject {
     func dismissStreakAnimation() {
         justCompletedStreak = nil
         justClearedQuestTitle = nil
+        justEarned = nil
     }
 
     /// Call when the user returns to FocusUp specifically because they
@@ -169,6 +174,9 @@ final class FamilyControlsManager: ObservableObject {
         TaskStore.saveTasks(tasks)
         if tasks[idx].isCompleted {
             StatsStore.recordCompleted(questTitle: task.title)
+            // Before refreshStats() so the reward is already set when the
+            // celebration screen it triggers first renders.
+            justEarned = CharacterStore.shared.rewardQuest(tasks[idx])
             refreshStats()
             GroupStore.unshieldAllBlockGroups()
             refreshGroups()

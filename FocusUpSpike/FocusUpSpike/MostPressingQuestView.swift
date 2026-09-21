@@ -1,15 +1,15 @@
 import SwiftUI
 
-/// Shown once per cold launch (see ContentView.onAppear ->
-/// FamilyControlsManager.checkInOnLaunch) -- not on every foreground,
-/// so quickly switching away from and back to FocusUp doesn't re-ask.
-/// Names the single most pressing quest (TaskStore.autoPickNextTask:
-/// highest priority, then earliest deadline -- the same pick the Quest
-/// Log's own "active" badge uses) and asks whether it got done since
-/// the app was last open.
+/// Shown when the user returns to FocusUp from a shield's "Open Quests"
+/// button (see QuestRoute / ContentView.refreshOnActive ->
+/// FamilyControlsManager.presentPressingQuestCheckIn) -- not on cold
+/// launch or ordinary foregrounding.
+/// Names the single most pressing quest (TaskStore.mostPressingTask:
+/// highest priority, then earliest deadline -- the same pick the shield
+/// itself shows) and asks whether it got done.
 ///
 /// Uses the "routine, not a payoff" cyan System palette (SystemPulse),
-/// not FireAura/gold -- see HunterTheme's color-system rule: gold is
+/// not FireAura/gold -- see PlayerTheme's color-system rule: gold is
 /// reserved for the streak/level-up moment (StreakCelebrationView).
 /// Answering "Yes" can still lead straight into that gold moment right
 /// after this one dismisses, via the normal completion path.
@@ -24,7 +24,7 @@ struct MostPressingQuestView: View {
     var body: some View {
         ZStack {
             Color.black.opacity(0.92).ignoresSafeArea()
-            RadialGradient(colors: [HunterTheme.cyan.opacity(0.12), .clear], center: .center, startRadius: 10, endRadius: 260)
+            RadialGradient(colors: [PlayerTheme.cyan.opacity(0.12), .clear], center: .center, startRadius: 10, endRadius: 260)
                 .ignoresSafeArea()
 
             VStack {
@@ -34,15 +34,15 @@ struct MostPressingQuestView: View {
                     Text("CHECK IN")
                         .font(.system(size: 12, weight: .heavy))
                         .tracking(4)
-                        .foregroundStyle(HunterTheme.cyan)
-                        .shadow(color: HunterTheme.cyan.opacity(0.8), radius: 10)
+                        .foregroundStyle(PlayerTheme.cyan)
+                        .shadow(color: PlayerTheme.cyan.opacity(0.8), radius: 10)
 
                     ZStack {
                         SystemPulse(diameter: 100)
                         Image(systemName: "flag.fill")
                             .font(.system(size: 34))
-                            .foregroundStyle(HunterTheme.cyan)
-                            .shadow(color: HunterTheme.cyan.opacity(0.7), radius: 10)
+                            .foregroundStyle(PlayerTheme.cyan)
+                            .shadow(color: PlayerTheme.cyan.opacity(0.7), radius: 10)
                     }
                     .frame(width: 88, height: 88)
 
@@ -50,10 +50,10 @@ struct MostPressingQuestView: View {
                         Text("Your most pressing quest")
                             .font(.system(size: 11, weight: .bold))
                             .tracking(1)
-                            .foregroundStyle(HunterTheme.textMuted)
+                            .foregroundStyle(PlayerTheme.textMuted)
                         Text(task.title)
                             .font(.system(size: 20, weight: .heavy))
-                            .foregroundStyle(HunterTheme.textPrimary)
+                            .foregroundStyle(PlayerTheme.textPrimary)
                             .multilineTextAlignment(.center)
 
                         HStack(spacing: 10) {
@@ -61,7 +61,7 @@ struct MostPressingQuestView: View {
                             if let due = task.dueDate {
                                 Text(due.formatted(date: .abbreviated, time: .omitted).uppercased())
                                     .font(.system(size: 10, weight: .bold))
-                                    .foregroundStyle(HunterTheme.textMuted)
+                                    .foregroundStyle(PlayerTheme.textMuted)
                             }
                         }
                         .padding(.top, 4)
@@ -69,7 +69,7 @@ struct MostPressingQuestView: View {
 
                     Text("Did you finish it?")
                         .font(.system(size: 14))
-                        .foregroundStyle(HunterTheme.textMuted)
+                        .foregroundStyle(PlayerTheme.textMuted)
                         .padding(.top, 8)
                 }
                 .padding(.horizontal, 32)
@@ -82,12 +82,12 @@ struct MostPressingQuestView: View {
                     } label: {
                         Text("Yes, completed it")
                             .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(HunterTheme.bg)
+                            .foregroundStyle(PlayerTheme.bg)
                             .frame(maxWidth: .infinity)
                             .frame(height: 54)
-                            .background(HunterTheme.cyan)
+                            .background(PlayerTheme.cyan)
                             .clipShape(Capsule())
-                            .shadow(color: HunterTheme.cyan.opacity(0.35), radius: 14)
+                            .shadow(color: PlayerTheme.cyan.opacity(0.35), radius: 14)
                     }
                     .buttonStyle(.plain)
 
@@ -96,7 +96,7 @@ struct MostPressingQuestView: View {
                     } label: {
                         Text("Not yet")
                             .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(HunterTheme.textMuted)
+                            .foregroundStyle(PlayerTheme.textMuted)
                             .frame(height: 40)
                     }
                     .buttonStyle(.plain)
@@ -126,9 +126,9 @@ struct MostPressingQuestView: View {
 
     private var priorityColor: Color {
         switch task.priority {
-        case .high: return HunterTheme.danger
-        case .medium: return HunterTheme.gold
-        case .low: return HunterTheme.cyan
+        case .high: return PlayerTheme.danger
+        case .medium: return PlayerTheme.gold
+        case .low: return PlayerTheme.cyan
         }
     }
 

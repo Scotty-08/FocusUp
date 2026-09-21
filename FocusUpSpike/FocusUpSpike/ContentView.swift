@@ -1,10 +1,10 @@
 import SwiftUI
 
-/// Root of the signed-in app. Home / Quests / Hunter tabs.
+/// Root of the signed-in app. Home / Quests / Player tabs.
 ///
 /// Also owns the "quest cleared" celebration overlay. It used to live
 /// inside HomeView's own ZStack, which meant it silently never appeared
-/// if the user happened to be on the Quests or Hunter tab when they
+/// if the user happened to be on the Quests or Player tab when they
 /// tapped back in from the shield notification -- SwiftUI only renders
 /// the currently-selected tab's content. Hoisting it here, above the
 /// TabView itself, means it shows no matter which tab was active.
@@ -56,12 +56,12 @@ struct ContentView: View {
                 CharacterView()
             }
             .tabItem {
-                Label("Hunter", systemImage: "person.fill")
+                Label("Player", systemImage: "person.fill")
             }
             .tag(2)
         }
         .onAppear { refreshOnActive() }
-        .tint(HunterTheme.cyan)
+        .tint(PlayerTheme.cyan)
         .preferredColorScheme(.dark)
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
@@ -77,6 +77,7 @@ struct ContentView: View {
                 StreakCelebrationView(
                     streak: streak,
                     questTitle: manager.justClearedQuestTitle,
+                    reward: manager.justEarned,
                     onDismiss: { manager.dismissStreakAnimation() },
                     onViewQuestLog: {
                         manager.dismissStreakAnimation()

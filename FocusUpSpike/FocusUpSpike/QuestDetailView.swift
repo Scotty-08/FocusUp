@@ -3,7 +3,7 @@ import SwiftUI
 /// Create/edit in one screen, same dual-purpose pattern as
 /// GroupDetailView -- `existingTask == nil` means create; otherwise
 /// every field seeds from the quest being edited and Save calls
-/// `manager.updateTask`. Reuses HunterTheme's HUD panel language, no new
+/// `manager.updateTask`. Reuses PlayerTheme's HUD panel language, no new
 /// visual style.
 struct QuestDetailView: View {
     @StateObject private var manager = FamilyControlsManager.shared
@@ -26,12 +26,12 @@ struct QuestDetailView: View {
 
     var body: some View {
         ZStack {
-            HunterBackground()
+            PlayerBackground()
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     Text(existingTask == nil ? "New Quest" : "Edit Quest")
                         .font(.system(size: 19, weight: .heavy))
-                        .foregroundStyle(HunterTheme.textPrimary)
+                        .foregroundStyle(PlayerTheme.textPrimary)
 
                     titleField
                     deadlineSection
@@ -48,8 +48,8 @@ struct QuestDetailView: View {
     private var titleField: some View {
         VStack(alignment: .leading, spacing: 6) {
             HUDLabel(text: "Quest")
-            TextField("", text: $title, prompt: Text("e.g. Apply to 3 internships").foregroundStyle(HunterTheme.textMuted))
-                .foregroundStyle(HunterTheme.textPrimary)
+            TextField("", text: $title, prompt: Text("e.g. Apply to 3 internships").foregroundStyle(PlayerTheme.textMuted))
+                .foregroundStyle(PlayerTheme.textPrimary)
                 .padding(.horizontal, 14)
                 .frame(height: 44)
                 .hudPanel()
@@ -63,7 +63,7 @@ struct QuestDetailView: View {
                 Toggle("", isOn: $hasDueDate.animation())
                     .labelsHidden()
                     .toggleStyle(.switch)
-                    .tint(HunterTheme.cyan)
+                    .tint(PlayerTheme.cyan)
                 if hasDueDate {
                     DatePicker("", selection: $dueDate, displayedComponents: .date)
                         .labelsHidden()
@@ -71,7 +71,7 @@ struct QuestDetailView: View {
                 } else {
                     Text("None -- undated quests rank lowest")
                         .font(.system(size: 11))
-                        .foregroundStyle(HunterTheme.textMuted)
+                        .foregroundStyle(PlayerTheme.textMuted)
                 }
                 Spacer()
             }
@@ -101,7 +101,7 @@ struct QuestDetailView: View {
         } label: {
             Text(level.label.uppercased())
                 .font(.system(size: 12, weight: .heavy))
-                .foregroundStyle(selected ? HunterTheme.bg : color)
+                .foregroundStyle(selected ? PlayerTheme.bg : color)
                 .frame(maxWidth: .infinity)
                 .frame(height: 40)
                 .background(selected ? color : color.opacity(0.12))
@@ -112,9 +112,9 @@ struct QuestDetailView: View {
 
     private func priorityColor(_ level: TaskPriority) -> Color {
         switch level {
-        case .high: return HunterTheme.danger
-        case .medium: return HunterTheme.gold
-        case .low: return HunterTheme.cyan
+        case .high: return PlayerTheme.danger
+        case .medium: return PlayerTheme.gold
+        case .low: return PlayerTheme.cyan
         }
     }
 
@@ -125,13 +125,13 @@ struct QuestDetailView: View {
             Text("SAVE QUEST")
                 .font(.system(size: 13, weight: .heavy))
                 .tracking(1)
-                .foregroundStyle(HunterTheme.textPrimary)
+                .foregroundStyle(PlayerTheme.textPrimary)
                 .frame(maxWidth: .infinity)
                 .frame(height: 46)
         }
         .buttonStyle(.plain)
         .hudPanel()
-        .shadow(color: HunterTheme.cyan.opacity(0.18), radius: 12)
+        .shadow(color: PlayerTheme.cyan.opacity(0.18), radius: 12)
         .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         .opacity(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.4 : 1)
     }
