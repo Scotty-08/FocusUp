@@ -143,24 +143,27 @@ final class FamilyControlsManager: ObservableObject {
             .map { $0.element }
         tasks = updated
         TaskStore.saveTasks(updated)
-        for id in removedIDs {
-            GroupStore.unlinkGroups(fromDeletedTask: id)
-        }
         if let activeTaskID, removedIDs.contains(activeTaskID) {
             self.activeTaskID = TaskStore.advanceActiveTask(using: updated)
         }
-        refreshGroups()
     }
 
-    /// Checking off a task from here (not a shield) releases every
-    /// Block-rule group linked to it too, same as tapping a Block
-    /// shield's primary button does from ShieldActionExtension.
+    /// Checking off a task from here (not a shield -- shields no longer
+    /// complete tasks directly, they just route to this tab, see
+    /// ShieldActionExtension) releases every Block-rule group, not just
+    /// ones "about" this task -- there's no per-group link anymore, so
+    /// completing ANY quest is what unlocks blocking, uniformly. See
+    /// GroupStore.unshieldAllBlockGroups's doc comment for why this is
+    /// an event, not a "quest list is empty" state check, and why that
+    /// distinction is what keeps blocking meaningful with zero quests.
     func toggleTaskCompletion(_ task: FocusTask) {
         guard let idx = tasks.firstIndex(where: { $0.id == task.id }) else { return }
         tasks[idx].isCompleted.toggle()
         TaskStore.saveTasks(tasks)
         if tasks[idx].isCompleted {
-            GroupStore.unshieldGroups(linkedToCompletedTask: task.id)
+            StatsStore.recordCompleted(questTitle: task.title)
+            refreshStats()
+            GroupStore.unshieldAllBlockGroups()
             refreshGroups()
         }
         if tasks[idx].isCompleted && activeTaskID == task.id {
@@ -191,7 +194,7 @@ final class FamilyControlsManager: ObservableObject {
         ManagedSettingsStore(named: GroupIdentity.storeName(for: group.id)).shield.applications?.isEmpty == false
     }
 
-    func createGroup(name: String, selection: FamilyActivitySelection, rule: GroupRule, taskID: UUID?) {
+    func createGroup(name: String, selection: FamilyActivitySelection, rule: GroupRule) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             lastError = "Give the group a name."
@@ -202,7 +205,7 @@ final class FamilyControlsManager: ObservableObject {
             return
         }
         let wasEmpty = groups.isEmpty
-        let group = AppGroup(name: trimmed, selection: selection, rule: rule, taskID: taskID)
+        let group = AppGroup(name: trimmed, selection: selection, rule: rule)
         var updated = groups
         updated.append(group)
         groups = updated
@@ -262,10 +265,7 @@ final class FamilyControlsManager: ObservableObject {
     }
 
     private func goalText(for group: AppGroup) -> String {
-        if let taskID = group.taskID, let title = tasks.first(where: { $0.id == taskID })?.title, !title.isEmpty {
-            return title
-        }
-        return "Finish your linked quest in FocusUp to unlock this app."
+        "Finish your quests in FocusUp to unlock this app."
     }
 
     private func activateBlock(_ group: AppGroup) {
@@ -375,9 +375,9 @@ final class FamilyControlsManager: ObservableObject {
         // continuously between window boundaries in that mode; a
         // threshold on top would be redundant and just adds more
         // DeviceActivity registrations for no behavioral difference.
-        // Otherwise unconditional for every Limit group. Copy adapts in
-        // ShieldConfigurationExtension: the linked task's title if there
-        // is one, otherwise a "why am I checking this?" reflection
+        // Otherwise unconditional for every Limit group. Copy is built in
+        // ShieldConfigurationExtension: the full open-quest list if
+        // there is one, otherwise a "why am I checking this?" reflection
         // prompt -- either way it's a dismissable nudge, never a lock.
         if !group.rule.interruptOnOpen {
             var events: [DeviceActivityEvent.Name: DeviceActivityEvent] = [:]
@@ -422,8 +422,7 @@ final class FamilyControlsManager: ObservableObject {
             let group = AppGroup(
                 name: "My Group",
                 selection: legacy,
-                rule: GroupRule(kind: .block),
-                taskID: TaskStore.activeTaskID
+                rule: GroupRule(kind: .block)
             )
             GroupStore.saveGroups([group])
             activate(group)

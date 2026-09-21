@@ -7,13 +7,19 @@ import UserNotifications
 /// which group owns the tapped app, and for Limit-rule groups, WHY the
 /// shield is currently up (GroupRuntimeState.shieldReason):
 ///
-/// - Block shield: primary button releases the WHOLE group and
-///   completes its linked task (matches SHIELD_DESIGN.md's documented
-///   intent -- "Completion... now ends the full focus session... rather
-///   than releasing only the app whose shield button was pressed" --
-///   the previous single-store implementation only released the tapped
-///   app; this fixes that to match the documented behavior). Secondary
-///   ("give up") still only releases the one app being looked at.
+/// - Block shield: primary button ("Open Quests") does NOT release
+///   anything -- Block groups aren't tied to one specific task (see
+///   AppGroup), so there's nothing here to complete. It routes to the
+///   Quests tab instead; the group unblocks itself once a quest is
+///   actually completed there (see
+///   GroupStore.unshieldAllBlockGroups, called from
+///   FamilyControlsManager.toggleTaskCompletion), which also releases
+///   every OTHER active Block group at once, matching SHIELD_DESIGN.md's
+///   documented intent of a completion ending "the full focus session,"
+///   just generalized from one group to all of them since there's no
+///   per-group link left to distinguish by. Secondary ("give up") still
+///   only releases the one app being looked at, and doesn't touch any
+///   quest.
 /// - Limit reminder nudge: if any quest is open, the primary button is
 ///   relabeled "Open Quests" (see ShieldConfigurationExtension) and
 ///   routes the user into FocusUp's Quests tab via the notification-tap
@@ -82,20 +88,18 @@ class ShieldActionExtension: ShieldActionDelegate {
         let store = ManagedSettingsStore(named: GroupIdentity.storeName(for: group.id))
         switch action {
         case .primaryButtonPressed:
-            let clearedQuestTitle = group.taskID.flatMap { id in TaskStore.loadTasks().first { $0.id == id }?.title }
-            store.shield.applications = nil
-            for token in group.selection.applicationTokens {
-                GoalStore.removeGoal(for: token)
-            }
-            GroupRuntimeState.setShieldReason(nil, for: group.id)
-            StatsStore.recordCompleted(questTitle: clearedQuestTitle)
-            if let taskID = group.taskID {
-                TaskStore.markTaskCompleted(id: taskID)
-                GroupStore.unshieldGroups(linkedToCompletedTask: taskID)
-            }
+            // "Open Quests" -- Block groups aren't tied to one specific
+            // task anymore (see AppGroup), so there's nothing for a
+            // shield tap to complete directly. The store is deliberately
+            // left untouched: this group unblocks only when a quest is
+            // actually completed from the Quests tab (see
+            // FamilyControlsManager.toggleTaskCompletion ->
+            // GroupStore.unshieldAllBlockGroups), which is exactly what
+            // this button routes the user to.
+            QuestRoute.request()
             scheduleReturnNotification(
-                title: "Quest complete \u{1F525}",
-                body: "Tap to jump back into FocusUp and see your streak."
+                title: "Your quests are waiting",
+                body: "Tap to jump back into FocusUp and see your list."
             )
             completionHandler(.close)
         case .secondaryButtonPressed:

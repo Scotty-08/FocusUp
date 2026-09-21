@@ -23,7 +23,6 @@ struct GroupDetailView: View {
     @State private var windows: [ScheduleWindow]
     @State private var reminderIntervalMinutes: Int
     @State private var interruptOnOpen: Bool
-    @State private var taskID: UUID?
     @State private var isPickerPresented = false
     @State private var showDeleteConfirm = false
 
@@ -38,7 +37,6 @@ struct GroupDetailView: View {
         _windows = State(initialValue: rule?.windows ?? [])
         _reminderIntervalMinutes = State(initialValue: rule?.reminderIntervalMinutes ?? 5)
         _interruptOnOpen = State(initialValue: rule?.interruptOnOpen ?? false)
-        _taskID = State(initialValue: existingGroup?.taskID)
     }
 
     var body: some View {
@@ -53,7 +51,6 @@ struct GroupDetailView: View {
                     nameField
                     appsSection
                     ruleSection
-                    taskSection
 
                     if let error = manager.lastError {
                         Text(error)
@@ -141,7 +138,7 @@ struct GroupDetailView: View {
         VStack(alignment: .leading, spacing: 12) {
             HUDLabel(text: "Rule")
             HStack(spacing: 10) {
-                ruleKindButton(.block, title: "Block", subtitle: "Fully inaccessible until the quest is done.")
+                ruleKindButton(.block, title: "Block", subtitle: "Fully inaccessible until you complete a quest.")
                 ruleKindButton(.limit, title: "Limit", subtitle: "Accessible, with reminders and an optional daily cap.")
             }
 
@@ -299,45 +296,6 @@ struct GroupDetailView: View {
         }
     }
 
-    private var taskSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HUDLabel(text: "Linked Quest")
-            Text(ruleKind == .block
-                 ? "This group unlocks when the chosen quest is marked done."
-                 : "You'll be reminded of this quest while using this group's apps.")
-                .font(.system(size: 10))
-                .foregroundStyle(HunterTheme.textMuted)
-
-            VStack(spacing: 8) {
-                taskRow(title: "None", isSelected: taskID == nil) { taskID = nil }
-                ForEach(manager.tasks.filter { !$0.isCompleted }) { task in
-                    taskRow(title: task.title, isSelected: taskID == task.id) { taskID = task.id }
-                }
-            }
-        }
-    }
-
-    private func taskRow(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack {
-                Text(title)
-                    .font(.system(size: 12, weight: isSelected ? .bold : .regular))
-                    .foregroundStyle(isSelected ? HunterTheme.textPrimary : HunterTheme.textMuted)
-                Spacer()
-                if isSelected {
-                    Image(systemName: "checkmark")
-                        .foregroundStyle(HunterTheme.cyan)
-                }
-            }
-            .padding(10)
-            .hudPanel(
-                borderColor: isSelected ? HunterTheme.cyanDim : Color.white.opacity(0.06),
-                cornerAccent: isSelected ? HunterTheme.cyan : .clear
-            )
-        }
-        .buttonStyle(.plain)
-    }
-
     private var actionButtons: some View {
         HStack(spacing: 12) {
             Button {
@@ -385,11 +343,10 @@ struct GroupDetailView: View {
                 name: name,
                 selection: selection,
                 rule: rule,
-                taskID: taskID,
                 createdAt: existingGroup.createdAt
             ))
         } else {
-            manager.createGroup(name: name, selection: selection, rule: rule, taskID: taskID)
+            manager.createGroup(name: name, selection: selection, rule: rule)
         }
         if manager.lastError == nil {
             dismiss()

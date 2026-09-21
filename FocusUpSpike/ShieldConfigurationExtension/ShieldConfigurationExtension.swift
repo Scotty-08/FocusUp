@@ -26,17 +26,26 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
         return streak > 0 ? "\(streakDots(streak))  \(streak)-quest streak" : "Stay locked in."
     }
 
-    private func taskTitle(for group: AppGroup) -> String? {
-        guard let taskID = group.taskID else { return nil }
-        return TaskStore.loadTasks().first { $0.id == taskID }?.title
+    /// Every open (incomplete) quest, across the WHOLE list -- groups no
+    /// longer link to one specific task (see AppGroup), so both
+    /// blockShield and reminderShield show the same global list. Capped
+    /// at `maxShown` with a "+N more" tail so a long list doesn't
+    /// overflow the system-controlled shield layout (SHIELD_DESIGN.md:
+    /// the system chooses shield typography/layout, not us) -- exact
+    /// wrapping behavior for a multi-line bulleted subtitle is
+    /// unverified on device, same caveat as every other shield-copy
+    /// choice here.
+    private func openQuests(maxShown: Int = 5) -> [FocusTask] {
+        Array(TaskStore.loadTasks().filter { !$0.isCompleted }.prefix(maxShown))
     }
 
     /// Every shield this app shows is one of exactly three shapes now:
-    /// a Block-rule lockout gated on a task, a Limit-rule reminder nudge
-    /// (dismissable), or a Limit-rule budget lockout (not dismissable --
-    /// see ShieldActionExtension). `token` resolves back to the owning
-    /// AppGroup; web-domain shields and orphaned tokens fall through to
-    /// a neutral default since groups only ever select app tokens.
+    /// a Block-rule lockout gated on the whole quest list, a Limit-rule
+    /// reminder nudge (dismissable), or a Limit-rule budget lockout (not
+    /// dismissable -- see ShieldActionExtension). `token` resolves back
+    /// to the owning AppGroup; web-domain shields and orphaned tokens
+    /// fall through to a neutral default since groups only ever select
+    /// app tokens.
     private func brandedShield(for token: ApplicationToken?) -> ShieldConfiguration {
         guard let token, let group = GroupStore.group(containing: token) else {
             return defaultShield()
@@ -51,40 +60,39 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
             // .block, or a Limit group with no reason recorded yet
             // (shouldn't happen -- defensive fallback to the block copy
             // rather than a blank shield).
-            return blockShield(group: group)
+            return blockShield()
         }
     }
 
-    private func blockShield(group: AppGroup) -> ShieldConfiguration {
-        let headline = taskTitle(for: group) ?? "Your quest comes first."
+    /// A real lockout -- unlike the Limit-rule shields below, neither
+    /// button here releases anything (see ShieldActionExtension.
+    /// handleBlock): "Open Quests" always just routes to the Quests tab,
+    /// whether or not the list happens to be empty right now, since
+    /// that's also where you'd go add one. Blocking is deliberately NOT
+    /// gated on the list being non-empty -- it stays blocked either way,
+    /// only releasing when a quest is actually completed (see
+    /// GroupStore.unshieldAllBlockGroups).
+    private func blockShield() -> ShieldConfiguration {
+        let allOpen = TaskStore.loadTasks().filter { !$0.isCompleted }
+        let headline: String
+        if allOpen.isEmpty {
+            headline = "No quests yet -- add one and complete it to unlock."
+        } else {
+            let shown = openQuests()
+            let bulletList = shown.map { "\u{2022} \($0.title)" }.joined(separator: "\n")
+            let overflow = allOpen.count - shown.count
+            headline = "Complete a quest to unlock:\n\(bulletList)" + (overflow > 0 ? "\n+\(overflow) more" : "")
+        }
         return ShieldConfiguration(
             backgroundBlurStyle: .systemMaterialDark,
             backgroundColor: bg,
             icon: FocusUpEmblem.image,
             title: .init(text: "FocusUp", color: ink),
             subtitle: .init(text: "\(headline)\n\(streakLine)", color: inkDim),
-            primaryButtonLabel: .init(text: "Open Quest", color: bg),
+            primaryButtonLabel: .init(text: "Open Quests", color: bg),
             primaryButtonBackgroundColor: cyan,
             secondaryButtonLabel: .init(text: "Give up", color: deadRust)
         )
-    }
-
-    /// The quest list to remind the user of on the interruption screen --
-    /// every open (incomplete) quest, not just the one this particular
-    /// group happens to link to, with the linked one (if any) pinned
-    /// first since it's still the most relevant. Capped at `maxShown`
-    /// with a "+N more" tail so a long list doesn't overflow the
-    /// system-controlled shield layout (SHIELD_DESIGN.md: the system
-    /// chooses shield typography/layout, not us) -- exact wrapping
-    /// behavior for a multi-line bulleted subtitle is unverified on
-    /// device, same caveat as every other shield-copy choice here.
-    private func questList(for group: AppGroup, maxShown: Int = 5) -> [FocusTask] {
-        var tasks = TaskStore.loadTasks().filter { !$0.isCompleted }
-        if let linkedID = group.taskID, let idx = tasks.firstIndex(where: { $0.id == linkedID }) {
-            let linked = tasks.remove(at: idx)
-            tasks.insert(linked, at: 0)
-        }
-        return Array(tasks.prefix(maxShown))
     }
 
     /// A dismissable nudge, not a lockout. When any quest is open, the
@@ -97,8 +105,8 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
     ///
     /// ALWAYS shows the full quest list when any quests are open, not
     /// just a single task name -- the point of the interruption is to
-    /// put the whole list back in front of the user, not just whichever
-    /// one this group happens to be linked to.
+    /// put the whole list back in front of the user, not one specific
+    /// task (there's no per-group link to pick one from anymore).
     private func reminderShield(group: AppGroup) -> ShieldConfiguration {
         let allOpen = TaskStore.loadTasks().filter { !$0.isCompleted }
         let headline: String
@@ -112,7 +120,7 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
             primaryLabel = "Continue"
             actionHint = "Tap Continue to keep using \(group.name)."
         } else {
-            let shown = questList(for: group)
+            let shown = openQuests()
             let bulletList = shown.map { "\u{2022} \($0.title)" }.joined(separator: "\n")
             let overflow = allOpen.count - shown.count
             headline = "Your quests:\n\(bulletList)" + (overflow > 0 ? "\n+\(overflow) more" : "")
@@ -158,7 +166,7 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
             icon: FocusUpEmblem.image,
             title: .init(text: "FocusUp", color: ink),
             subtitle: .init(text: "Your quest comes first.\n\(streakLine)", color: inkDim),
-            primaryButtonLabel: .init(text: "Open Quest", color: bg),
+            primaryButtonLabel: .init(text: "Open Quests", color: bg),
             primaryButtonBackgroundColor: cyan,
             secondaryButtonLabel: .init(text: "Give up", color: deadRust)
         )

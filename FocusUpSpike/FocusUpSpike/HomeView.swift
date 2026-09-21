@@ -146,17 +146,12 @@ struct HomeView: View {
             } else {
                 VStack(spacing: 10) {
                     ForEach(manager.groups) { group in
-                        GroupCardView(group: group, taskTitle: taskTitle(for: group), status: status(for: group))
+                        GroupCardView(group: group, status: status(for: group))
                             .onTapGesture { editingGroup = group }
                     }
                 }
             }
         }
-    }
-
-    private func taskTitle(for group: AppGroup) -> String? {
-        guard let taskID = group.taskID else { return nil }
-        return manager.tasks.first { $0.id == taskID }?.title
     }
 
     /// Plain-language status pill per group -- Block groups read as
@@ -244,7 +239,6 @@ struct HomeView: View {
 /// `.onTapGesture`).
 private struct GroupCardView: View {
     let group: AppGroup
-    let taskTitle: String?
     let status: (text: String, color: Color)
 
     private let maxIcons = 4
@@ -266,7 +260,7 @@ private struct GroupCardView: View {
                 .font(.system(size: 14, weight: .bold))
                 .foregroundStyle(HunterTheme.textPrimary)
 
-            Text(group.summaryText(taskTitle: taskTitle))
+            Text(group.summaryText())
                 .font(.system(size: 11))
                 .foregroundStyle(HunterTheme.textMuted)
         }
