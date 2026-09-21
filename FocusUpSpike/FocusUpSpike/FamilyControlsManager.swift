@@ -36,13 +36,7 @@ final class FamilyControlsManager: ObservableObject {
     @Published var justCompletedStreak: Int?
     @Published var justClearedQuestTitle: String?
     @Published var tasks: [FocusTask] = []
-    @Published var activeTaskID: UUID?
     private var lastKnownCompletedCount: Int = 0
-
-    var activeTask: FocusTask? {
-        guard let id = activeTaskID else { return nil }
-        return tasks.first { $0.id == id }
-    }
 
     private init() {
         authorizationStatus = center.authorizationStatus
@@ -94,47 +88,47 @@ final class FamilyControlsManager: ObservableObject {
 
     // MARK: - Tasks
 
-    /// Re-reads tasks from the shared App Group store. Needed because
-    /// ShieldActionExtension (a separate process) can complete tasks on
-    /// its own -- call this whenever the app becomes active.
+    /// Re-reads tasks from the shared App Group store -- call whenever
+    /// the app becomes active, in case anything changed while it wasn't
+    /// in the foreground.
     func refreshTasks() {
         tasks = TaskStore.loadTasks()
-        activeTaskID = TaskStore.activeTaskID
-        if activeTaskID == nil {
-            activeTaskID = TaskStore.advanceActiveTask(using: tasks)
-        }
     }
 
-    func addTask(title: String, dueDate: Date? = nil) {
+    func addTask(title: String, dueDate: Date? = nil, priority: TaskPriority = .medium) {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         var updated = tasks
-        let newTask = FocusTask(title: trimmed, dueDate: dueDate)
-        updated.append(newTask)
+        updated.append(FocusTask(title: trimmed, dueDate: dueDate, priority: priority))
         tasks = updated
         TaskStore.saveTasks(updated)
-        if activeTaskID == nil {
-            activeTaskID = TaskStore.advanceActiveTask(using: updated)
-        }
     }
 
-    func deleteTasks(at offsets: IndexSet) {
-        let removedIDs = offsets.map { tasks[$0].id }
-        let updated = tasks.enumerated()
-            .filter { !offsets.contains($0.offset) }
-            .map { $0.element }
+    /// Edits an existing quest's title/deadline/priority in place. Does
+    /// NOT touch isCompleted -- that's toggleTaskCompletion's job, kept
+    /// separate so editing a quest's details never accidentally
+    /// completes or reopens it.
+    func updateTask(_ task: FocusTask) {
+        guard let idx = tasks.firstIndex(where: { $0.id == task.id }) else { return }
+        tasks[idx] = task
+        TaskStore.saveTasks(tasks)
+    }
+
+    /// Takes explicit ids rather than an IndexSet -- TasksView sorts
+    /// quests for display (priority, then deadline), so a swipe-to-delete
+    /// offset from that sorted list would NOT map to the right item in
+    /// `tasks`' own storage order. Deleting by id sidesteps that
+    /// entirely, correct regardless of how the caller is displaying them.
+    func deleteTasks(withIDs ids: [UUID]) {
+        let idSet = Set(ids)
+        let updated = tasks.filter { !idSet.contains($0.id) }
         tasks = updated
         TaskStore.saveTasks(updated)
-        if let activeTaskID, removedIDs.contains(activeTaskID) {
-            self.activeTaskID = TaskStore.advanceActiveTask(using: updated)
-        }
     }
 
-    /// Checking off a task from here (not a shield -- shields no longer
-    /// complete tasks directly, they just route to this tab, see
-    /// ShieldActionExtension) releases every Block-rule group, not just
-    /// ones "about" this task -- there's no per-group link anymore, so
-    /// completing ANY quest is what unlocks blocking, uniformly. See
+    /// Releases every Block-rule group, not just ones "about" this task
+    /// -- there's no per-group link anymore, so completing ANY quest is
+    /// what unlocks blocking, uniformly. See
     /// GroupStore.unshieldAllBlockGroups's doc comment for why this is
     /// an event, not a "quest list is empty" state check, and why that
     /// distinction is what keeps blocking meaningful with zero quests.
@@ -148,16 +142,6 @@ final class FamilyControlsManager: ObservableObject {
             GroupStore.unshieldAllBlockGroups()
             refreshGroups()
         }
-        if tasks[idx].isCompleted && activeTaskID == task.id {
-            activeTaskID = TaskStore.advanceActiveTask(using: tasks)
-        }
-    }
-
-    /// Manual override for the Tasks tab's own due-date auto-pick;
-    /// unrelated to which task any given group links to.
-    func setActiveTask(_ id: UUID?) {
-        activeTaskID = id
-        TaskStore.activeTaskID = id
     }
 
     // MARK: - Groups
@@ -433,14 +417,16 @@ final class FamilyControlsManager: ObservableObject {
     /// deleted -- best-effort: Live Activities require the user to have
     /// them enabled and can fail to start for reasons entirely outside
     /// our control, so a failure here is silent rather than surfaced as
-    /// a user-facing error. Still shows the global active task + streak,
-    /// not any particular group's state -- representing N simultaneous
-    /// groups here is out of scope for this pass.
+    /// a user-facing error. Shows the open-quest count + streak, not any
+    /// particular group's or quest's state -- there's no single "active"
+    /// quest anymore (every quest is equally active, see TaskStore) and
+    /// representing N simultaneous groups here is out of scope for this
+    /// pass, so a count is the honest summary rather than picking one.
     private func startFocusActivity() {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
         endFocusActivity()
         let attributes = FocusUpActivityAttributes(startedAt: Date())
-        let state = FocusUpActivityAttributes.ContentState(questTitle: activeTask?.title, streak: currentStreak)
+        let state = FocusUpActivityAttributes.ContentState(questTitle: openQuestSummary, streak: currentStreak)
         do {
             focusActivity = try Activity.request(
                 attributes: attributes,
@@ -453,8 +439,14 @@ final class FamilyControlsManager: ObservableObject {
 
     private func updateFocusActivity() {
         guard let focusActivity else { return }
-        let state = FocusUpActivityAttributes.ContentState(questTitle: activeTask?.title, streak: currentStreak)
+        let state = FocusUpActivityAttributes.ContentState(questTitle: openQuestSummary, streak: currentStreak)
         Task { await focusActivity.update(ActivityContent(state: state, staleDate: nil)) }
+    }
+
+    private var openQuestSummary: String? {
+        let count = tasks.filter { !$0.isCompleted }.count
+        guard count > 0 else { return nil }
+        return count == 1 ? "1 quest open" : "\(count) quests open"
     }
 
     private func endFocusActivity() {
