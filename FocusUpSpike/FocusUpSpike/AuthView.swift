@@ -2,15 +2,19 @@ import SwiftUI
 import AuthenticationServices
 
 /// Shown before ContentView until the user signs in. Sign in with Apple
-/// is fully real (native AuthenticationServices, no backend needed --
-/// Apple is the identity provider). The email/phone section below it is
-/// a UI-only placeholder: it looks and behaves like sign-up but doesn't
-/// create a real secure account yet.
+/// is native AuthenticationServices; when the backend is configured its
+/// identity token is also exchanged for a server account so friends
+/// work (best-effort, never blocks entering the app). The email section
+/// creates/signs into a real server account when the backend is
+/// configured, and is a UI-only placeholder otherwise.
 struct AuthView: View {
     @StateObject private var auth = AuthManager.shared
     @State private var email = ""
     @State private var password = ""
     @State private var errorText: String?
+    @State private var appleNonce = ""
+    @State private var isCreatingAccount = false
+    @State private var isBusy = false
 
     var body: some View {
         ZStack {
@@ -22,6 +26,9 @@ struct AuthView: View {
                     VStack(spacing: 14) {
                         SignInWithAppleButton(.signIn) { request in
                             request.requestedScopes = [.fullName, .email]
+                            let raw = AppleNonce.random()
+                            appleNonce = raw
+                            request.nonce = AppleNonce.sha256(raw)
                         } onCompletion: { result in
                             switch result {
                             case .success(let authResults):
@@ -30,6 +37,7 @@ struct AuthView: View {
                                         .compactMap { $0 }
                                         .joined(separator: " ")
                                     auth.signIn(method: "apple", displayName: name.isEmpty ? nil : name)
+                                    connectBackend(with: credential)
                                 } else {
                                     auth.signIn(method: "apple", displayName: nil)
                                 }
@@ -48,9 +56,11 @@ struct AuthView: View {
                         }
 
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("Preview only right now -- this doesn't create a real account yet, just lets you try the flow. Real accounts need a backend decision first.")
-                                .font(.system(size: 10))
-                                .foregroundStyle(PlayerTheme.emberOrange)
+                            if !BackendConfig.isConfigured {
+                                Text("Preview only right now -- this build isn't connected to the FocusUp server, so this doesn't create a real account, it just lets you try the flow.")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(PlayerTheme.emberOrange)
+                            }
 
                             hudField(placeholder: "Email or phone number", text: $email, secure: false)
                             hudField(placeholder: "Password", text: $password, secure: true)
@@ -62,9 +72,9 @@ struct AuthView: View {
                                     return
                                 }
                                 errorText = nil
-                                auth.signIn(method: "email-placeholder", displayName: trimmed)
+                                submitEmail(trimmed)
                             } label: {
-                                Text("ENTER")
+                                Text(isCreatingAccount ? "CREATE ACCOUNT" : "ENTER")
                                     .font(.system(size: 15, weight: .bold))
                                     .tracking(1.5)
                                     .foregroundStyle(PlayerTheme.cyan)
@@ -73,13 +83,15 @@ struct AuthView: View {
                             }
                             .buttonStyle(.plain)
                             .hudPanel()
+                            .disabled(isBusy)
+                            .opacity(isBusy ? 0.5 : 1)
 
                             Button {
-                                // Decorative only for now -- matches the design
-                                // mockup's non-functional "Create an account" link.
+                                isCreatingAccount.toggle()
+                                errorText = nil
                             } label: {
-                                (Text("New here? ").foregroundStyle(PlayerTheme.textMuted)
-                                    + Text("Create an account").foregroundStyle(PlayerTheme.cyan))
+                                (Text(isCreatingAccount ? "Already have an account? " : "New here? ").foregroundStyle(PlayerTheme.textMuted)
+                                    + Text(isCreatingAccount ? "Sign in" : "Create an account").foregroundStyle(PlayerTheme.cyan))
                                     .font(.system(size: 12))
                             }
                             .buttonStyle(.plain)
@@ -98,6 +110,43 @@ struct AuthView: View {
             }
         }
         .preferredColorScheme(.dark)
+    }
+
+    /// Exchanges Apple's identity token for a server account. Runs after
+    /// the local sign-in has already happened and never blocks it -- if
+    /// this fails, the Friends tab offers to connect again.
+    private func connectBackend(with credential: ASAuthorizationAppleIDCredential) {
+        guard BackendConfig.isConfigured,
+              let tokenData = credential.identityToken,
+              let token = String(data: tokenData, encoding: .utf8) else { return }
+        let nonce = appleNonce
+        Task { @MainActor in
+            try? await BackendClient.shared.signInWithApple(idToken: token, rawNonce: nonce)
+        }
+    }
+
+    private func submitEmail(_ email: String) {
+        let shortName = String(email.split(separator: "@").first ?? Substring(email))
+        guard BackendConfig.isConfigured else {
+            auth.signIn(method: "email-placeholder", displayName: email)
+            return
+        }
+        isBusy = true
+        let create = isCreatingAccount
+        let secret = password
+        Task { @MainActor in
+            defer { isBusy = false }
+            do {
+                if create {
+                    try await BackendClient.shared.signUp(email: email, password: secret)
+                } else {
+                    try await BackendClient.shared.signIn(email: email, password: secret)
+                }
+                auth.signIn(method: "email", displayName: shortName)
+            } catch {
+                errorText = error.localizedDescription
+            }
+        }
     }
 
     private var brandMark: some View {

@@ -82,6 +82,22 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
             // mid-day (right after a window ends) and must NOT also
             // reset the flag.
             GroupRuntimeState.setExceededToday(false, for: groupID)
+            // A new day also lifts yesterday's budget lockout (the shield
+            // copy promises "it unlocks again with tomorrow's budget").
+            // Clearing only the flag left the app shielded forever. With
+            // check-in-on-open the group goes back to its armed
+            // check-in instead of fully open.
+            if GroupRuntimeState.shieldReason(for: groupID) == .limitBudgetExceeded,
+               let group = GroupStore.group(for: groupID) {
+                let store = ManagedSettingsStore(named: GroupIdentity.storeName(for: groupID))
+                if group.rule.checkInOnOpen, !group.rule.windows.contains(where: { $0.contains(Date()) }) {
+                    GroupRuntimeState.setShieldReason(.limitReminder, for: groupID)
+                    store.shield.applications = group.selection.applicationTokens
+                } else {
+                    GroupRuntimeState.setShieldReason(nil, for: groupID)
+                    store.shield.applications = nil
+                }
+            }
         }
     }
 

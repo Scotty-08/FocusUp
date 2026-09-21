@@ -3,3 +3,6 @@ DerivedData/
 build/
 xcuserdata/
 *.xcuserstate
+
+# Local Supabase project URL + anon key -- copy BackendSecrets.swift.example
+FocusUpSpike/FocusUpSpike/BackendSecrets.swift

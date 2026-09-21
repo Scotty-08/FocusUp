@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Root of the signed-in app. Home / Quests / Player tabs.
+/// Root of the signed-in app. Home / Quests / Player / Friends tabs.
 ///
 /// Also owns the "quest cleared" celebration overlay. It used to live
 /// inside HomeView's own ZStack, which meant it silently never appeared
@@ -10,6 +10,7 @@ import SwiftUI
 /// TabView itself, means it shows no matter which tab was active.
 struct ContentView: View {
     @StateObject private var manager = FamilyControlsManager.shared
+    @StateObject private var friends = FriendsStore.shared
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab = 0
 
@@ -17,6 +18,13 @@ struct ContentView: View {
         manager.refreshAuthorizationStatus()
         manager.refreshTasks()
         manager.refreshStats()
+        // Best-effort and off the critical path: publishes this player's
+        // card and pulls friends/requests/cheers. A no-op when the server
+        // isn't configured or the user isn't connected.
+        Task {
+            await friends.syncProfile()
+            await friends.refresh()
+        }
         // Consumes the breadcrumb ShieldActionExtension leaves when the
         // shield's "Open Quests" button is tapped (see QuestRoute in
         // GoalStore.swift and ShieldActionExtension.handleLimit) -- the
@@ -59,8 +67,21 @@ struct ContentView: View {
                 Label("Player", systemImage: "person.fill")
             }
             .tag(2)
+
+            NavigationStack {
+                FriendsView()
+            }
+            .tabItem {
+                Label("Friends", systemImage: "person.2.fill")
+            }
+            .badge(friends.badgeCount)
+            .tag(3)
         }
         .onAppear { refreshOnActive() }
+        // A quest reward just changed EXP/level/streak -- publish it.
+        .onChange(of: manager.justEarned?.xp) { _, _ in
+            Task { await friends.syncProfile() }
+        }
         .tint(PlayerTheme.cyan)
         .preferredColorScheme(.dark)
         .onChange(of: scenePhase) { _, newPhase in

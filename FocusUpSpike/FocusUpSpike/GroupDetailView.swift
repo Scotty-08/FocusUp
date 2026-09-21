@@ -154,7 +154,7 @@ struct GroupDetailView: View {
             HUDLabel(text: "Rule")
             HStack(spacing: 10) {
                 ruleKindButton(.block, title: "Block", subtitle: "Fully inaccessible until you complete a quest.")
-                ruleKindButton(.limit, title: "Limit", subtitle: "Accessible, with reminders while you use it and an optional daily cap.")
+                ruleKindButton(.limit, title: "Limit", subtitle: "Accessible, with reminders while you use it, an optional first-open check-in, and an optional daily cap.")
             }
 
             if ruleKind == .limit {
@@ -199,7 +199,7 @@ struct GroupDetailView: View {
                 if hasDailyLimit {
                     numberField(label: "Daily budget", value: $dailyBudgetMinutes, suffix: "min/day", range: 5...480)
                 } else {
-                    Text("Apps stay accessible with no automatic lockout -- just the check-ins below.")
+                    Text("Apps stay accessible with no automatic lockout -- just the reminders (and optional first-open check-in) below.")
                         .font(.system(size: 10))
                         .foregroundStyle(PlayerTheme.textMuted)
                 }
@@ -224,14 +224,14 @@ struct GroupDetailView: View {
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(PlayerTheme.textMuted)
                 numberField(label: "Remind every", value: $reminderIntervalMinutes, suffix: "min of use", range: 1...60)
-                Text("Always on. A dismissable check-in while you're in the app -- never a lock, unless the daily limit above runs out.")
+                Text("Always on. A dismissable reminder that pops up while you're using the app -- never a lock, unless the daily limit above runs out.")
                     .font(.system(size: 10))
                     .foregroundStyle(PlayerTheme.textMuted)
             }
 
             VStack(alignment: .leading, spacing: 6) {
                 Toggle(isOn: $checkInOnOpen.animation()) {
-                    Text("Also check in when I open it")
+                    Text("Check-in when I first open it")
                         .font(.system(size: 11))
                         .foregroundStyle(PlayerTheme.textMuted)
                 }
@@ -240,7 +240,7 @@ struct GroupDetailView: View {
 
                 if checkInOnOpen {
                     numberField(label: "Check in again after", value: $reshieldMinutes, suffix: "min", range: GroupRule.minReshieldMinutes...480)
-                    Text("Optional. A check-in shows when you open the app -- tap through to use it. After you do, the next open checks in again once this much time has passed. iOS can't tell when you leave an app, so 15 minutes is the shortest gap.")
+                    Text("Optional. The check-in shows only when you first open the app, never while you're using it -- tap through to get in. After you do, it waits this long before it can check in on your next open. iOS can't tell when you leave an app, so 15 minutes is the shortest wait.")
                         .font(.system(size: 10))
                         .foregroundStyle(PlayerTheme.textMuted)
                 }
@@ -291,8 +291,8 @@ struct GroupDetailView: View {
                 .font(.system(size: 10, weight: .bold))
                 .foregroundStyle(PlayerTheme.textMuted)
             Text(hasDailyLimit
-                 ? "No limits or check-ins during these windows, regardless of the budget above. Outside them, the budget tracks separately in each remaining gap -- more windows means more separately-resetting budgets, not one shared total."
-                 : "No check-ins during these windows. Outside them, the normal check-in applies.")
+                 ? "No limits, reminders or check-ins during these windows, regardless of the budget above. Outside them, the budget tracks separately in each remaining gap -- more windows means more separately-resetting budgets, not one shared total."
+                 : "No reminders or check-ins during these windows. Outside them, the normal reminders apply.")
                 .font(.system(size: 10))
                 .foregroundStyle(PlayerTheme.textMuted)
 

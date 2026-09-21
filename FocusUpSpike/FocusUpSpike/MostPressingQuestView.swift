@@ -118,18 +118,10 @@ struct MostPressingQuestView: View {
     private var priorityBadge: some View {
         Text(task.priority.label.uppercased())
             .font(.system(size: 10, weight: .heavy))
-            .foregroundStyle(priorityColor)
+            .foregroundStyle(task.priority.color)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
-            .overlay(Rectangle().strokeBorder(priorityColor.opacity(0.6), lineWidth: 1))
-    }
-
-    private var priorityColor: Color {
-        switch task.priority {
-        case .high: return PlayerTheme.danger
-        case .medium: return PlayerTheme.gold
-        case .low: return PlayerTheme.cyan
-        }
+            .overlay(Rectangle().strokeBorder(task.priority.color.opacity(0.6), lineWidth: 1))
     }
 
     private func dismiss(completed: Bool) {

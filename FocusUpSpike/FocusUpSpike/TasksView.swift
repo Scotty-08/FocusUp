@@ -125,16 +125,8 @@ struct TasksView: View {
 
     private func priorityDot(_ priority: TaskPriority) -> some View {
         Circle()
-            .fill(priorityColor(priority))
+            .fill(priority.color)
             .frame(width: 8, height: 8)
-    }
-
-    private func priorityColor(_ priority: TaskPriority) -> Color {
-        switch priority {
-        case .high: return PlayerTheme.danger
-        case .medium: return PlayerTheme.gold
-        case .low: return PlayerTheme.cyan
-        }
     }
 
     private func isPastDue(_ date: Date) -> Bool {

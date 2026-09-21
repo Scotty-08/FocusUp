@@ -95,7 +95,7 @@ struct QuestDetailView: View {
 
     private func priorityButton(_ level: TaskPriority) -> some View {
         let selected = priority == level
-        let color = priorityColor(level)
+        let color = level.color
         return Button {
             priority = level
         } label: {
@@ -108,14 +108,6 @@ struct QuestDetailView: View {
                 .overlay(Rectangle().strokeBorder(color.opacity(0.6), lineWidth: 1))
         }
         .buttonStyle(.plain)
-    }
-
-    private func priorityColor(_ level: TaskPriority) -> Color {
-        switch level {
-        case .high: return PlayerTheme.danger
-        case .medium: return PlayerTheme.gold
-        case .low: return PlayerTheme.cyan
-        }
     }
 
     private var saveButton: some View {
