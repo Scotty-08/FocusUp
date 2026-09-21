@@ -133,7 +133,7 @@ struct AppGroup: Identifiable, Codable, Equatable {
                 parts.append(extra > 0 ? "No limits \(first.label), +\(extra) more" : "No limits \(first.label)")
             }
             if rule.interruptOnOpen {
-                parts.append("Checks in about every minute")
+                parts.append("Shield on open (after ~1 min of use)")
             }
             return parts.joined(separator: ". ") + "."
         }

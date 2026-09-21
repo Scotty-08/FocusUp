@@ -205,9 +205,35 @@ struct GroupDetailView: View {
 
             windowsEditor
 
+            reminderStyleSection
+        }
+    }
+
+    /// Check-in settings for a Limit group. The while-you-use-it reminder
+    /// is ALWAYS on (every Limit group registers it, see
+    /// FamilyControlsManager.activateLimit); "shield when I open it" is
+    /// an optional extra backed by rule.interruptOnOpen. iOS has no
+    /// "every single open" trigger for another app, so that extra is the
+    /// closest approximation -- the same reminder at a 1-minute cadence,
+    /// which is why the interval field is inert while it's on -- and the
+    /// copy says so rather than promising more.
+    private var reminderStyleSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("WHILE YOU USE IT")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(PlayerTheme.textMuted)
+                numberField(label: "Remind every", value: $reminderIntervalMinutes, suffix: "min of use", range: 1...60)
+                    .disabled(interruptOnOpen)
+                    .opacity(interruptOnOpen ? 0.4 : 1)
+                Text("Always on. Apps stay accessible -- this brings up a dismissable check-in, never a lock, unless the daily budget above runs out.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(PlayerTheme.textMuted)
+            }
+
             VStack(alignment: .leading, spacing: 6) {
                 Toggle(isOn: $interruptOnOpen.animation()) {
-                    Text("Check in very frequently")
+                    Text("Also shield when I open it")
                         .font(.system(size: 11))
                         .foregroundStyle(PlayerTheme.textMuted)
                 }
@@ -215,12 +241,7 @@ struct GroupDetailView: View {
                 .tint(PlayerTheme.cyan)
 
                 if interruptOnOpen {
-                    Text("The check-in shows about once a minute of use (outside any free-access window above) instead of on your own schedule -- the platform doesn't support a true \"every single open\" trigger, this is the closest it gets. You can always tap through it -- it's a pause, not a lock, unless the daily budget above runs out.")
-                        .font(.system(size: 10))
-                        .foregroundStyle(PlayerTheme.textMuted)
-                } else {
-                    numberField(label: "Remind every", value: $reminderIntervalMinutes, suffix: "min of use", range: 1...60)
-                    Text("Apps stay accessible the whole time -- this just brings up a dismissable check-in, never a lock, unless the daily budget above runs out.")
+                    Text("Optional. The check-in shows about a minute after you open the app, and keeps coming about every minute, so the interval above is paused while this is on. The platform has no true \"every single open\" trigger -- this is the closest it gets. You can always tap through it; it's a pause, not a lock.")
                         .font(.system(size: 10))
                         .foregroundStyle(PlayerTheme.textMuted)
                 }
