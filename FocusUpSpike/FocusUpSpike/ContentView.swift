@@ -56,7 +56,13 @@ struct ContentView: View {
             }
             .tag(2)
         }
-        .onAppear { refreshOnActive() }
+        .onAppear {
+            refreshOnActive()
+            // Cold-launch only -- deliberately NOT called from the
+            // scenePhase-active branch below, so quickly switching away
+            // from and back to FocusUp doesn't re-ask every time.
+            manager.checkInOnLaunch()
+        }
         .tint(HunterTheme.cyan)
         .preferredColorScheme(.dark)
         .onChange(of: scenePhase) { _, newPhase in
@@ -65,6 +71,10 @@ struct ContentView: View {
             }
         }
         .overlay {
+            // Streak celebration always wins if both are somehow pending
+            // at once -- e.g. answering "Yes" on the check-in prompt can
+            // itself trigger a streak completion, which should then take
+            // over once the check-in prompt clears itself.
             if let streak = manager.justCompletedStreak {
                 StreakCelebrationView(
                     streak: streak,
@@ -74,6 +84,12 @@ struct ContentView: View {
                         manager.dismissStreakAnimation()
                         selectedTab = 1
                     }
+                )
+            } else if let task = manager.pressingQuestPrompt {
+                MostPressingQuestView(
+                    task: task,
+                    onCompleted: { manager.resolvePressingQuestPrompt(completed: true) },
+                    onNotYet: { manager.resolvePressingQuestPrompt(completed: false) }
                 )
             }
         }
