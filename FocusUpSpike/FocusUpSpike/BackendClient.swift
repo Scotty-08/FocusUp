@@ -15,8 +15,15 @@ import CryptoKit
 /// and every network feature quietly stays off: the app's core loop
 /// (groups, quests, blocking) never depends on the server.
 enum BackendConfig {
-    static let projectURL = BackendSecrets.projectURL
-    static let anonKey = BackendSecrets.anonKey
+    // Trimmed: a stray space or newline pasted along with the key makes
+    // Supabase answer "Invalid API key".
+    static let projectURL = BackendSecrets.projectURL.trimmingCharacters(in: .whitespacesAndNewlines)
+    static let anonKey = BackendSecrets.anonKey.trimmingCharacters(in: .whitespacesAndNewlines)
+
+    /// Legacy anon keys are JWTs ("eyJ..."). Newer projects hand out
+    /// "sb_publishable_..." keys, which are NOT JWTs and must only go in
+    /// the `apikey` header, never `Authorization: Bearer`.
+    static var keyIsJWT: Bool { anonKey.hasPrefix("eyJ") }
 
     static var isConfigured: Bool {
         !projectURL.contains("YOUR-PROJECT-REF")
@@ -130,6 +137,10 @@ final class BackendClient: ObservableObject {
     static let shared = BackendClient()
 
     @Published private(set) var session: BackendSession?
+    /// Why the most recent sign-in/connect attempt failed, for the UI
+    /// (the Apple sign-in exchange runs in the background and would
+    /// otherwise fail silently). Cleared on success.
+    @Published var lastConnectError: String?
     var isConnected: Bool { session != nil }
 
     private static let sessionKey = "session"
@@ -199,12 +210,18 @@ final class BackendClient: ObservableObject {
 
     private func authenticate(path: String, grantType: String?, body: [String: String]) async throws {
         let query = grantType.map { [URLQueryItem(name: "grant_type", value: $0)] } ?? []
-        let data = try await send(
-            method: "POST", path: path, query: query,
-            body: try JSONSerialization.data(withJSONObject: body),
-            authorized: false
-        )
-        try adoptSession(from: data)
+        do {
+            let data = try await send(
+                method: "POST", path: path, query: query,
+                body: try JSONSerialization.data(withJSONObject: body),
+                authorized: false
+            )
+            try adoptSession(from: data)
+            lastConnectError = nil
+        } catch {
+            lastConnectError = error.localizedDescription
+            throw error
+        }
     }
 
     private func adoptSession(from data: Data) throws {
@@ -335,8 +352,11 @@ final class BackendClient: ObservableObject {
         // above signed the user out, fail here instead of quietly
         // sending the public anon key as if it were a login.
         if authorized, session == nil { throw BackendError.notSignedIn }
-        let bearer = authorized ? (session?.accessToken ?? BackendConfig.anonKey) : BackendConfig.anonKey
-        request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
+        if authorized, let token = session?.accessToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        } else if BackendConfig.keyIsJWT {
+            request.setValue("Bearer \(BackendConfig.anonKey)", forHTTPHeaderField: "Authorization")
+        }
         for (field, value) in headers { request.setValue(value, forHTTPHeaderField: field) }
 
         let data: Data
@@ -353,7 +373,11 @@ final class BackendClient: ObservableObject {
             return try await send(method: method, path: path, query: query, body: body, headers: headers, authorized: true, allowRefresh: false)
         }
         guard (200..<300).contains(http.statusCode) else {
-            throw BackendError.server(status: http.statusCode, message: Self.errorMessage(from: data))
+            var message = Self.errorMessage(from: data)
+            if message.lowercased().contains("api key") {
+                message = "The server rejected this app's API key. Check the URL and anon/publishable key in BackendSecrets.swift (Supabase -> Project Settings -> API), then rebuild."
+            }
+            throw BackendError.server(status: http.statusCode, message: message)
         }
         return data
     }

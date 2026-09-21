@@ -36,10 +36,10 @@ struct AuthView: View {
                                     let name = [credential.fullName?.givenName, credential.fullName?.familyName]
                                         .compactMap { $0 }
                                         .joined(separator: " ")
-                                    auth.signIn(method: "apple", displayName: name.isEmpty ? nil : name)
+                                    auth.signIn(method: "apple", displayName: name.isEmpty ? nil : name, identity: "apple:\(credential.user)")
                                     connectBackend(with: credential)
                                 } else {
-                                    auth.signIn(method: "apple", displayName: nil)
+                                    auth.signIn(method: "apple", displayName: nil, identity: nil)
                                 }
                             case .failure(let error):
                                 errorText = "Sign in with Apple failed: \(error.localizedDescription)"
@@ -121,14 +121,27 @@ struct AuthView: View {
               let token = String(data: tokenData, encoding: .utf8) else { return }
         let nonce = appleNonce
         Task { @MainActor in
-            try? await BackendClient.shared.signInWithApple(idToken: token, rawNonce: nonce)
+            // Failure isn't fatal (the app is local-first) and is recorded
+            // in BackendClient.lastConnectError for the Friends tab.
+            _ = try? await BackendClient.shared.signInWithApple(idToken: token, rawNonce: nonce)
+            await markReturningIfAccountExists()
+        }
+    }
+
+    /// An account that already has a player card on the server isn't new,
+    /// even on a phone that's never seen it -- skip the first-run tutorial.
+    /// Best-effort: offline, the tutorial simply shows.
+    private func markReturningIfAccountExists() async {
+        guard BackendClient.shared.isConnected else { return }
+        if await FriendsStore.shared.serverProfileExists() {
+            auth.markReturningUser()
         }
     }
 
     private func submitEmail(_ email: String) {
         let shortName = String(email.split(separator: "@").first ?? Substring(email))
         guard BackendConfig.isConfigured else {
-            auth.signIn(method: "email-placeholder", displayName: email)
+            auth.signIn(method: "email-placeholder", displayName: email, identity: "email:\(email.lowercased())")
             return
         }
         isBusy = true
@@ -142,7 +155,8 @@ struct AuthView: View {
                 } else {
                     try await BackendClient.shared.signIn(email: email, password: secret)
                 }
-                auth.signIn(method: "email", displayName: shortName)
+                auth.signIn(method: "email", displayName: shortName, identity: "email:\(email.lowercased())")
+                await markReturningIfAccountExists()
             } catch {
                 errorText = error.localizedDescription
             }

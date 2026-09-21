@@ -139,6 +139,17 @@ final class FriendsStore: ObservableObject {
         UserDefaults.standard.removeObject(forKey: usernameKey)
     }
 
+    /// True if the signed-in account already has a player card on the
+    /// server -- i.e. they're a returning user (maybe on a new phone).
+    func serverProfileExists() async -> Bool {
+        guard let userID = backend.session?.userID else { return false }
+        let rows: [UsernameOnly]? = try? await backend.get(
+            "/rest/v1/profiles",
+            query: [URLQueryItem(name: "id", value: "eq.\(userID.uuidString)"), URLQueryItem(name: "select", value: "username")]
+        )
+        return !(rows ?? []).isEmpty
+    }
+
     // MARK: - Profile sync
 
     /// Lowercase letters, digits and underscores only, 3-16 characters

@@ -34,6 +34,17 @@ final class AuthManager: ObservableObject {
     private let onboardingKey = "focusUp.hasCompletedOnboarding"
     private let usernameKey = "focusUp.username"
     private let dobKey = "focusUp.dateOfBirth"
+    private let identityKey = "focusUp.identity"
+    private let onboardedKey = "focusUp.onboardedIdentities"
+    /// Stands in for "someone who finished onboarding before per-account
+    /// tracking existed" -- consumed by their next sign-in, so a
+    /// returning tester isn't put through the tutorial again.
+    private static let legacyToken = "__legacy__"
+
+    /// Stable id of whoever is signed in (Apple's user id, or the
+    /// lowercased email). Used only to remember who has already seen the
+    /// first-run tutorial.
+    private var currentIdentity: String?
 
     private init() {
         isSignedIn = defaults.bool(forKey: signedInKey)
@@ -41,6 +52,7 @@ final class AuthManager: ObservableObject {
         signInMethod = defaults.string(forKey: methodKey)
         hasCompletedOnboarding = defaults.bool(forKey: onboardingKey)
         username = defaults.string(forKey: usernameKey)
+        currentIdentity = defaults.string(forKey: identityKey)
         if defaults.object(forKey: dobKey) != nil {
             dateOfBirth = Date(timeIntervalSince1970: defaults.double(forKey: dobKey))
         } else {
@@ -48,7 +60,37 @@ final class AuthManager: ObservableObject {
         }
     }
 
-    func signIn(method: String, displayName: String?) {
+    private var onboardedIdentities: Set<String> {
+        get { Set(defaults.stringArray(forKey: onboardedKey) ?? []) }
+        set { defaults.set(Array(newValue), forKey: onboardedKey) }
+    }
+
+    /// Whether this identity has been through the tutorial before.
+    private func hasOnboarded(_ identity: String?) -> Bool {
+        var known = onboardedIdentities
+        if let identity, known.contains(identity) { return true }
+        if known.contains(Self.legacyToken) {
+            known.remove(Self.legacyToken)
+            if let identity { known.insert(identity) }
+            onboardedIdentities = known
+            return true
+        }
+        return false
+    }
+
+    /// `identity` is what tells a returning user from a brand-new one: the
+    /// first-run tutorial only shows for an identity that has never
+    /// completed it on this device (or, see markReturningUser, that
+    /// already has an account on the server).
+    func signIn(method: String, displayName: String?, identity: String? = nil) {
+        currentIdentity = identity
+        if let identity {
+            defaults.set(identity, forKey: identityKey)
+        } else {
+            defaults.removeObject(forKey: identityKey)
+        }
+        hasCompletedOnboarding = hasOnboarded(identity)
+        defaults.set(hasCompletedOnboarding, forKey: onboardingKey)
         isSignedIn = true
         self.displayName = displayName
         self.signInMethod = method
@@ -69,12 +111,30 @@ final class AuthManager: ObservableObject {
         self.username = trimmed
         self.dateOfBirth = dateOfBirth
         self.hasCompletedOnboarding = true
+        if let currentIdentity { onboardedIdentities.insert(currentIdentity) }
         defaults.set(trimmed, forKey: usernameKey)
         defaults.set(dateOfBirth.timeIntervalSince1970, forKey: dobKey)
         defaults.set(true, forKey: onboardingKey)
     }
 
+    /// For someone who signed in on a NEW device but already has an
+    /// account on the server -- they're not new, so skip the tutorial.
+    func markReturningUser() {
+        guard !hasCompletedOnboarding else { return }
+        hasCompletedOnboarding = true
+        defaults.set(true, forKey: onboardingKey)
+        if let currentIdentity { onboardedIdentities.insert(currentIdentity) }
+    }
+
     func signOut() {
+        // Remember that this person finished the tutorial, so signing
+        // back in doesn't repeat it. A session from before per-account
+        // tracking has no identity yet, so it's parked as "legacy".
+        if hasCompletedOnboarding {
+            onboardedIdentities.insert(currentIdentity ?? Self.legacyToken)
+        }
+        currentIdentity = nil
+        defaults.removeObject(forKey: identityKey)
         // Drop the server session and cached friends so the next account
         // on this device doesn't inherit them.
         BackendClient.shared.signOut()
