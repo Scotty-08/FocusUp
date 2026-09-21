@@ -36,9 +36,9 @@ final class FamilyControlsManager: ObservableObject {
     @Published var justCompletedStreak: Int?
     @Published var justClearedQuestTitle: String?
     @Published var tasks: [FocusTask] = []
-    /// Non-nil while the cold-launch "did you finish this?" prompt
-    /// should be showing (see checkInOnLaunch/resolvePressingQuestPrompt
-    /// and ContentView's overlay).
+    /// Non-nil while the shield-return "did you finish this?" prompt
+    /// should be showing (see presentPressingQuestCheckIn/
+    /// resolvePressingQuestPrompt and ContentView's overlay).
     @Published var pressingQuestPrompt: FocusTask?
     private var lastKnownCompletedCount: Int = 0
 
@@ -90,16 +90,17 @@ final class FamilyControlsManager: ObservableObject {
         justClearedQuestTitle = nil
     }
 
-    /// Call ONLY from a cold launch (ContentView's `.onAppear`), never
-    /// from the scenePhase-active path -- otherwise this would re-ask
-    /// every time the user just switches back from another app, not
-    /// just when actually (re)opening FocusUp. Names the single most
+    /// Call when the user returns to FocusUp specifically because they
+    /// tapped a shield's "Open Quests" button (see ContentView's
+    /// QuestRoute.consume() branch) -- NOT on every ordinary launch or
+    /// foreground, so this only shows right after that specific
+    /// interaction, not every time the app opens. Names the single most
     /// pressing incomplete quest (TaskStore.mostPressingTask: highest
     /// priority, then earliest deadline) and surfaces it via
     /// pressingQuestPrompt; ContentView's overlay shows
     /// MostPressingQuestView for it. No-ops (leaves the prompt nil) if
     /// there's nothing incomplete.
-    func checkInOnLaunch() {
+    func presentPressingQuestCheckIn() {
         refreshTasks()
         pressingQuestPrompt = TaskStore.mostPressingTask(from: tasks)
     }
