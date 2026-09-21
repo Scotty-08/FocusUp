@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 
 /// One row of `list_friends()` (supabase/schema.sql): another player plus
