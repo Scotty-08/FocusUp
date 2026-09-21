@@ -2,82 +2,72 @@ import SwiftUI
 
 struct TasksView: View {
     @StateObject private var manager = FamilyControlsManager.shared
-    @State private var newTaskTitle = ""
-    @State private var hasDueDate = false
-    @State private var newTaskDueDate = Date()
+    @State private var isCreatingQuest = false
+    @State private var editingTask: FocusTask?
+
+    /// Every quest is equally active (see TaskStore) -- this is purely a
+    /// DISPLAY order, not persisted or used to pick anything. Incomplete
+    /// quests first (highest priority, earliest deadline first; undated
+    /// quests rank behind dated ones), completed quests after.
+    private var sortedTasks: [FocusTask] {
+        manager.tasks.sorted { a, b in
+            if a.isCompleted != b.isCompleted { return !a.isCompleted && b.isCompleted }
+            if a.priority != b.priority { return a.priority > b.priority }
+            switch (a.dueDate, b.dueDate) {
+            case let (da?, db?): return da < db
+            case (nil, nil): return false
+            case (nil, _): return false
+            case (_, nil): return true
+            }
+        }
+    }
 
     var body: some View {
         ZStack {
             HunterBackground(topRight: false)
             VStack(spacing: 0) {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 12) {
-                        TextField("", text: $newTaskTitle, prompt: Text("New quest, e.g. Apply to 3 internships").foregroundStyle(HunterTheme.textMuted))
-                            .foregroundStyle(HunterTheme.textPrimary)
-                            .padding(.horizontal, 14)
-                            .frame(height: 44)
-                            .hudPanel()
-
-                        Button {
-                            manager.addTask(title: newTaskTitle, dueDate: hasDueDate ? newTaskDueDate : nil)
-                            newTaskTitle = ""
-                            hasDueDate = false
-                            newTaskDueDate = Date()
-                        } label: {
-                            Image(systemName: "plus")
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundStyle(HunterTheme.cyan)
-                                .frame(width: 44, height: 44)
-                        }
-                        .buttonStyle(.plain)
-                        .hudPanel()
+                Button {
+                    isCreatingQuest = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus")
+                        Text("MAKE A NEW QUEST")
                     }
-
-                    HStack(spacing: 8) {
-                        Toggle("", isOn: $hasDueDate.animation())
-                            .labelsHidden()
-                            .toggleStyle(.switch)
-                            .tint(HunterTheme.cyan)
-                        Text("Deadline")
-                            .font(.system(size: 11))
-                            .foregroundStyle(HunterTheme.textMuted)
-
-                        if hasDueDate {
-                            DatePicker("", selection: $newTaskDueDate, displayedComponents: .date)
-                                .labelsHidden()
-                                .colorScheme(.dark)
-                        } else {
-                            Text("None — undated quests rank lowest")
-                                .font(.system(size: 10))
-                                .foregroundStyle(HunterTheme.textMuted)
-                        }
-                        Spacer()
-                    }
+                    .font(.system(size: 13, weight: .heavy))
+                    .tracking(1)
+                    .foregroundStyle(HunterTheme.textPrimary)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 46)
                 }
+                .buttonStyle(.plain)
+                .hudPanel()
+                .shadow(color: HunterTheme.cyan.opacity(0.18), radius: 12)
                 .padding(20)
 
                 if manager.tasks.isEmpty {
                     Spacer()
-                    Text("No quests yet. Add one above.")
+                    Text("No quests yet. Tap Make a New Quest above.")
                         .foregroundStyle(HunterTheme.textMuted)
                     Spacer()
                 } else {
                     List {
-                        ForEach(manager.tasks) { task in
+                        ForEach(sortedTasks) { task in
                             questRow(task)
+                                .contentShape(Rectangle())
+                                .onTapGesture { editingTask = task }
                                 .listRowBackground(Color.clear)
                                 .listRowSeparator(.hidden)
                                 .listRowInsets(EdgeInsets(top: 5, leading: 20, bottom: 5, trailing: 20))
                         }
                         .onDelete { offsets in
-                            manager.deleteTasks(at: offsets)
+                            manager.deleteTasks(withIDs: offsets.map { sortedTasks[$0].id })
                         }
                     }
                     .scrollContentBackground(.hidden)
                     .listStyle(.plain)
                 }
 
-                Text("Quests are auto-ordered by due date -- earliest first, same-day ties broken randomly, no date = least urgent. Whatever quest is active stays active until it's cleared, even if something else becomes due sooner. Tap \"Set Active\" to override which one comes first.")
+                Text("Every quest is active -- all of them show on your groups' shields, there's no single quest to pick. Sorted here by priority, then deadline. Tap a quest to edit it.")
                     .font(.system(size: 10))
                     .foregroundStyle(HunterTheme.textMuted)
                     .padding(20)
@@ -89,11 +79,16 @@ struct TasksView: View {
         .onAppear {
             manager.refreshTasks()
         }
+        .sheet(isPresented: $isCreatingQuest) {
+            QuestDetailView(existingTask: nil)
+        }
+        .sheet(item: $editingTask) { task in
+            QuestDetailView(existingTask: task)
+        }
     }
 
     private func questRow(_ task: FocusTask) -> some View {
-        let isActive = manager.activeTaskID == task.id
-        return HStack(spacing: 12) {
+        HStack(spacing: 12) {
             Button {
                 manager.toggleTaskCompletion(task)
             } label: {
@@ -102,15 +97,18 @@ struct TasksView: View {
             }
             .buttonStyle(.plain)
 
+            priorityDot(task.priority)
+                .opacity(task.isCompleted ? 0.4 : 1)
+
             VStack(alignment: .leading, spacing: 3) {
                 Text(task.title)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(task.isCompleted ? HunterTheme.textMuted : HunterTheme.textPrimary)
                     .strikethrough(task.isCompleted)
                 if let due = task.dueDate {
-                    Text("DEADLINE \(due.formatted(date: .abbreviated, time: .omitted).uppercased())\(task.isCompleted ? " · CLEARED" : (isActive ? " · IN PROGRESS" : ""))")
+                    Text("DEADLINE \(due.formatted(date: .abbreviated, time: .omitted).uppercased())\(task.isCompleted ? " · CLEARED" : "")")
                         .font(.system(size: 10))
-                        .foregroundStyle(isPastDue(due) && !task.isCompleted ? HunterTheme.danger : (isActive ? HunterTheme.cyan : HunterTheme.textMuted))
+                        .foregroundStyle(isPastDue(due) && !task.isCompleted ? HunterTheme.danger : HunterTheme.textMuted)
                 } else {
                     Text(task.isCompleted ? "NO DEADLINE · CLEARED" : "NO DEADLINE")
                         .font(.system(size: 10))
@@ -119,36 +117,24 @@ struct TasksView: View {
             }
 
             Spacer()
-
-            if task.isCompleted {
-                EmptyView()
-            } else if isActive {
-                Text("ACTIVE")
-                    .font(.system(size: 10, weight: .heavy))
-                    .foregroundStyle(HunterTheme.bg)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 4)
-                    .background(HunterTheme.cyan)
-            } else {
-                Button {
-                    manager.setActiveTask(task.id)
-                } label: {
-                    Text("SET ACTIVE")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(HunterTheme.cyan)
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 4)
-                }
-                .buttonStyle(.plain)
-                .overlay(Rectangle().strokeBorder(HunterTheme.cyanDim, lineWidth: 1))
-            }
         }
         .padding(12)
         .opacity(task.isCompleted ? 0.55 : 1)
-        .hudPanel(
-            borderColor: isActive && !task.isCompleted ? HunterTheme.cyanDim : Color.white.opacity(0.06),
-            cornerAccent: isActive && !task.isCompleted ? HunterTheme.cyan : .clear
-        )
+        .hudPanel()
+    }
+
+    private func priorityDot(_ priority: TaskPriority) -> some View {
+        Circle()
+            .fill(priorityColor(priority))
+            .frame(width: 8, height: 8)
+    }
+
+    private func priorityColor(_ priority: TaskPriority) -> Color {
+        switch priority {
+        case .high: return HunterTheme.danger
+        case .medium: return HunterTheme.gold
+        case .low: return HunterTheme.cyan
+        }
     }
 
     private func isPastDue(_ date: Date) -> Bool {
