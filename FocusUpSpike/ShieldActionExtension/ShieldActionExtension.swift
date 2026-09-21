@@ -14,23 +14,36 @@ import UserNotifications
 ///   the previous single-store implementation only released the tapped
 ///   app; this fixes that to match the documented behavior). Secondary
 ///   ("give up") still only releases the one app being looked at.
-/// - Limit reminder nudge: either button dismisses it and returns
-///   `.none` (not `.close`), which drops the user back into the app
-///   they were already using instead of kicking them out -- no task
-///   completion, no ignore recorded, just a dismissed nudge.
+/// - Limit reminder nudge: if any quest is open, the primary button is
+///   relabeled "Open Quests" (see ShieldConfigurationExtension) and
+///   routes the user into FocusUp's Quests tab via the notification-tap
+///   pattern below, using `.close` since they're leaving this app, not
+///   continuing to use it. Otherwise (no open quests, or the secondary
+///   "Dismiss" button) either button just dismisses the nudge and
+///   returns `.none` (not `.close`), which drops the user back into the
+///   app they were already using instead of kicking them out -- no task
+///   completion, no ignore recorded. If the group's rule has
+///   `interruptOnOpen` set, dismissing does NOT remove the token from
+///   the store (see handleLimit) -- the shield reappears on the next
+///   open, giving "shown before every open" instead of "shown
+///   periodically."
 /// - Limit budget-exceeded lockout: neither button releases the app --
 ///   the token is deliberately left in the store so the restriction
 ///   survives the tap. This is the one behavior in this file that's
 ///   unverified on-device; confirm it before relying on it for the demo.
 ///
-/// Note on "why a notification, not opening the app directly" for the
-/// Block/give-up paths (which DO use `.close`, unlike the reminder
-/// above): there is no supported way to open/foreground the host app
-/// from this extension -- checked directly against Apple's own
-/// ShieldActionResponse cases (.none / .defer / .close only; no case
-/// exists for opening the host or parent app in any shipped SDK). A
-/// local notification is the closest equivalent: tapping IT is a real
-/// user action, so iOS is allowed to launch FocusUp from that tap.
+/// Note on "why a notification, not opening the app directly" for every
+/// path above that ends with `.close` (Block's two buttons, and the
+/// reminder's "Open Quests"): there is no supported way to
+/// open/foreground the host app from this extension -- checked directly
+/// against Apple's own ShieldActionResponse cases (.none / .defer /
+/// .close only; no case exists for opening the host or parent app in
+/// any shipped SDK). A local notification is the closest equivalent:
+/// tapping IT is a real user action, so iOS is allowed to launch
+/// FocusUp from that tap -- QuestRoute (see GoalStore.swift) is the
+/// breadcrumb "Open Quests" leaves so the app knows to land on the
+/// Quests tab specifically once launched that way, rather than wherever
+/// it would otherwise open to.
 class ShieldActionExtension: ShieldActionDelegate {
     override func handle(action: ShieldAction, for application: ApplicationToken, completionHandler: @escaping (ShieldActionResponse) -> Void) {
         guard let group = GroupStore.group(containing: application) else {
@@ -111,13 +124,40 @@ class ShieldActionExtension: ShieldActionDelegate {
                 body: "\u{201C}\(group.name)\u{201D} is locked for the rest of today's budget."
             )
             completionHandler(.close)
+        case .limitReminder where action == .primaryButtonPressed && TaskStore.loadTasks().contains(where: { !$0.isCompleted }):
+            // "Open Quests" (ShieldConfigurationExtension relabels the
+            // primary button this way whenever any quest is open) --
+            // the user is leaving this app for FocusUp's Quests tab, not
+            // continuing to use it, so the shield's token is left
+            // exactly as it is either way (whether it stays because of
+            // interruptOnOpen is irrelevant on this path). Same "no
+            // supported way to open the host app directly from a shield
+            // extension" constraint as the Block-rule paths below --
+            // route via a notification tap instead, with QuestRoute as
+            // the breadcrumb telling the app to land on the Quests tab
+            // specifically once it's launched from that tap.
+            QuestRoute.request()
+            scheduleReturnNotification(
+                title: "Your quests are waiting",
+                body: "Tap to jump back into FocusUp and see your list."
+            )
+            completionHandler(.close)
+        case .limitReminder where group.rule.interruptOnOpen:
+            // Secondary ("Dismiss"), or primary with no open quests to
+            // route to -- this group wants the interruption on EVERY
+            // open, so leave the token in the store so the shield
+            // reappears the next time the app is (re)opened. .none just
+            // lets the CURRENT attempt through without touching
+            // enforcement at all; no task completion or ignore recorded
+            // either way.
+            completionHandler(.none)
         default:
-            // .limitReminder (or an unexpected nil) -- just a nudge,
-            // dismiss it without recording completion or ignore. The
-            // next reminder mark will reshield it. .none (not .close)
-            // is what drops the user back into the app they were
-            // already using, rather than kicking them out to the home
-            // screen -- "Continue" should actually continue.
+            // .limitReminder in periodic mode (or an unexpected nil) --
+            // just a nudge, dismiss it without recording completion or
+            // ignore. The next reminder mark will reshield it. .none
+            // (not .close) is what drops the user back into the app they
+            // were already using, rather than kicking them out to the
+            // home screen -- "Continue" should actually continue.
             let store = ManagedSettingsStore(named: GroupIdentity.storeName(for: group.id))
             var apps = store.shield.applications ?? []
             apps.remove(application)

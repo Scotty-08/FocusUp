@@ -89,14 +89,23 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
         super.intervalDidEnd(for: activity)
 
         guard let (groupID, kind) = GroupIdentity.parse(activity), kind.hasPrefix("window"),
-              GroupRuntimeState.exceededToday(groupID),
               let group = GroupStore.group(for: groupID) else { return }
-        // A free-access window just ended and today's budget was already
-        // used up before it started -- re-lock for the remainder of the
-        // day (the next budget segment is registered starting exactly at
-        // this same boundary and will keep tracking usage from here).
-        ManagedSettingsStore(named: GroupIdentity.storeName(for: groupID)).shield.applications = group.selection.applicationTokens
-        GroupRuntimeState.setShieldReason(.limitBudgetExceeded, for: groupID)
+
+        if GroupRuntimeState.exceededToday(groupID) {
+            // A free-access window just ended and today's budget was
+            // already used up before it started -- re-lock for the
+            // remainder of the day (the next budget segment is
+            // registered starting exactly at this same boundary and
+            // will keep tracking usage from here).
+            ManagedSettingsStore(named: GroupIdentity.storeName(for: groupID)).shield.applications = group.selection.applicationTokens
+            GroupRuntimeState.setShieldReason(.limitBudgetExceeded, for: groupID)
+        } else if group.rule.interruptOnOpen {
+            // No budget lockout in effect -- but this group wants the
+            // interruption shown on every open, and the window that was
+            // suppressing it has just ended, so resume that.
+            ManagedSettingsStore(named: GroupIdentity.storeName(for: groupID)).shield.applications = group.selection.applicationTokens
+            GroupRuntimeState.setShieldReason(.limitReminder, for: groupID)
+        }
     }
 
     /// Silently does nothing if notification permission was never

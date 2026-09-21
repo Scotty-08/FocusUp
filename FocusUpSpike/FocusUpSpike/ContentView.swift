@@ -17,6 +17,17 @@ struct ContentView: View {
         manager.refreshAuthorizationStatus()
         manager.refreshTasks()
         manager.refreshStats()
+        // Consumes the breadcrumb ShieldActionExtension leaves when the
+        // shield's "Open Quests" button is tapped (see QuestRoute in
+        // GoalStore.swift and ShieldActionExtension.handleLimit) -- the
+        // notification tap that actually launches/foregrounds the app is
+        // a separate, real user action (extensions can't open the host
+        // app directly), so this is what turns "the app happened to
+        // launch" into "land on the Quests tab specifically." False by
+        // default, so this is a no-op on every other launch/foreground.
+        if QuestRoute.consume() {
+            selectedTab = 1
+        }
     }
 
     var body: some View {
