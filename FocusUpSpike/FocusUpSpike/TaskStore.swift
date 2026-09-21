@@ -71,12 +71,10 @@ enum TaskStore {
     /// dated quest at that tier is done, in the order they were added.
     /// Returns nil when nothing incomplete is left.
     ///
-    /// Purely computed on demand (see
-    /// FamilyControlsManager.checkInOnLaunch) -- deliberately NOT
-    /// persisted as a standing "active" pick the way an earlier version
-    /// of this app did. The Quest Log itself still treats every quest as
-    /// equally active (see FocusTask's doc comment); this is only used
-    /// to name one quest for the cold-launch check-in prompt.
+    /// Purely computed on demand, never persisted as a standing "active"
+    /// pick. The Quest Log treats every quest as equally active (see
+    /// FocusTask's doc comment); this only names the one quest the
+    /// shield and the shield-return check-in prompt should show.
     static func mostPressingTask(from tasks: [FocusTask]) -> FocusTask? {
         let incomplete = tasks.filter { !$0.isCompleted }
         guard let highestPriority = incomplete.map(\.priority).max() else { return nil }

@@ -6,13 +6,14 @@ import ManagedSettingsUI
 struct HomeView: View {
     @StateObject private var manager = FamilyControlsManager.shared
     @StateObject private var auth = AuthManager.shared
+    @StateObject private var character = CharacterStore.shared
     @Environment(\.scenePhase) private var scenePhase
     @State private var isCreatingGroup = false
     @State private var editingGroup: AppGroup?
 
     var body: some View {
         ZStack {
-            HunterBackground()
+            PlayerBackground()
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     header
@@ -23,29 +24,29 @@ struct HomeView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("FocusUp needs Screen Time permission to block or limit apps in your groups. This must be approved for FocusUp to work.")
                                 .font(.footnote)
-                                .foregroundStyle(HunterTheme.textMuted)
+                                .foregroundStyle(PlayerTheme.textMuted)
 
                             if manager.authorizationStatus == .denied {
                                 Text("Permission was denied. iOS only asks once — open Settings ▸ Screen Time ▸ FocusUpSpike to turn it on, then relaunch the app.")
                                     .font(.footnote)
-                                    .foregroundStyle(HunterTheme.emberOrange)
+                                    .foregroundStyle(PlayerTheme.emberOrange)
                             }
                         }
                     }
 
                     groupsSection
 
-                    hunterLog
+                    playerLog
 
                     if let error = manager.lastError {
                         Text(error)
-                            .foregroundStyle(HunterTheme.danger)
+                            .foregroundStyle(PlayerTheme.danger)
                             .font(.footnote)
                     }
 
                     Text("This is a feasibility spike, not the FocusUp app. It proves authorization, group selection, and per-group enforcement apply/clear on this device.")
                         .font(.footnote)
-                        .foregroundStyle(HunterTheme.textMuted)
+                        .foregroundStyle(PlayerTheme.textMuted)
                 }
                 .padding(20)
             }
@@ -81,25 +82,25 @@ struct HomeView: View {
         // notification -- see ContentView.swift.
     }
 
-    private var hunterName: String {
-        guard let name = auth.displayName, !name.isEmpty else { return "YOU" }
-        return name.uppercased()
+    private var playerName: String {
+        let name = character.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? "YOU" : name.uppercased()
     }
 
     private var header: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 2) {
-                (Text("FOCUS").foregroundStyle(HunterTheme.textPrimary) + Text("UP").foregroundStyle(HunterTheme.cyan))
+                (Text("FOCUS").foregroundStyle(PlayerTheme.textPrimary) + Text("UP").foregroundStyle(PlayerTheme.cyan))
                     .font(.system(size: 19, weight: .heavy))
-                Text("HUNTER: \(hunterName)")
+                Text("PLAYER: \(playerName)")
                     .font(.system(size: 11))
-                    .foregroundStyle(HunterTheme.textMuted)
+                    .foregroundStyle(PlayerTheme.textMuted)
                 Button("Sign Out") {
                     auth.signOut()
                 }
                 .buttonStyle(.plain)
                 .font(.system(size: 10))
-                .foregroundStyle(HunterTheme.textMuted)
+                .foregroundStyle(PlayerTheme.textMuted)
                 .padding(.top, 2)
             }
             Spacer()
@@ -107,15 +108,15 @@ struct HomeView: View {
                 FireAura(diameter: 40, withEmbers: false)
                 HStack(spacing: 6) {
                     Image(systemName: "flame.fill")
-                        .foregroundStyle(HunterTheme.gold)
+                        .foregroundStyle(PlayerTheme.gold)
                         .font(.system(size: 12))
                     Text("\(manager.currentStreak)")
                         .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(HunterTheme.gold)
+                        .foregroundStyle(PlayerTheme.gold)
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .hudPanel(borderColor: HunterTheme.gold.opacity(0.5), cornerAccent: HunterTheme.gold)
+                .hudPanel(borderColor: PlayerTheme.gold.opacity(0.5), cornerAccent: PlayerTheme.gold)
             }
         }
     }
@@ -133,7 +134,7 @@ struct HomeView: View {
                         Text("ADD APPS")
                     }
                     .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(HunterTheme.cyan)
+                    .foregroundStyle(PlayerTheme.cyan)
                 }
                 .buttonStyle(.plain)
                 .disabled(manager.authorizationStatus != .approved)
@@ -142,7 +143,7 @@ struct HomeView: View {
             if manager.groups.isEmpty {
                 Text("No groups yet. Tap Add Apps to block or limit your first set of apps.")
                     .font(.system(size: 12))
-                    .foregroundStyle(HunterTheme.textMuted)
+                    .foregroundStyle(PlayerTheme.textMuted)
             } else {
                 VStack(spacing: 10) {
                     ForEach(manager.groups) { group in
@@ -165,27 +166,27 @@ struct HomeView: View {
         switch group.rule.kind {
         case .block:
             return manager.isEnforced(group)
-                ? ("BLOCKED", HunterTheme.danger)
-                : ("UNLOCKED", HunterTheme.cyan)
+                ? ("BLOCKED", PlayerTheme.danger)
+                : ("UNLOCKED", PlayerTheme.cyan)
         case .limit:
             switch GroupRuntimeState.shieldReason(for: group.id) {
             case .limitBudgetExceeded:
-                return ("LIMIT REACHED", HunterTheme.danger)
+                return ("LIMIT REACHED", PlayerTheme.danger)
             case .limitReminder:
-                return ("CHECK-IN", HunterTheme.gold)
+                return ("CHECK-IN", PlayerTheme.gold)
             default:
-                return ("ACCESSIBLE", HunterTheme.cyan)
+                return ("ACCESSIBLE", PlayerTheme.cyan)
             }
         }
     }
 
-    private var hunterLog: some View {
+    private var playerLog: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HUDLabel(text: "Hunter Log")
+            HUDLabel(text: "Player Log")
             HStack(spacing: 8) {
-                logTile(value: manager.completedCount, label: "CLEARED", color: HunterTheme.cyan)
-                logTile(value: manager.ignoreCount, label: "ABANDONED", color: HunterTheme.danger)
-                logTile(value: manager.currentStreak, label: "STREAK", color: HunterTheme.gold, aura: true)
+                logTile(value: manager.completedCount, label: "CLEARED", color: PlayerTheme.cyan)
+                logTile(value: manager.ignoreCount, label: "ABANDONED", color: PlayerTheme.danger)
+                logTile(value: manager.currentStreak, label: "STREAK", color: PlayerTheme.gold, aura: true)
             }
         }
     }
@@ -201,7 +202,7 @@ struct HomeView: View {
                     .foregroundStyle(color)
                 Text(label)
                     .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(HunterTheme.textMuted)
+                    .foregroundStyle(PlayerTheme.textMuted)
             }
             .padding(12)
         }
@@ -215,10 +216,10 @@ struct HomeView: View {
             Spacer()
             Text(value)
                 .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(granted ? HunterTheme.bg : HunterTheme.textPrimary)
+                .foregroundStyle(granted ? PlayerTheme.bg : PlayerTheme.textPrimary)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)
-                .background(granted ? HunterTheme.cyan : Color.white.opacity(0.08))
+                .background(granted ? PlayerTheme.cyan : Color.white.opacity(0.08))
         }
         .padding(12)
         .hudPanel()
@@ -250,7 +251,7 @@ private struct GroupCardView: View {
                 Spacer()
                 Text(status.text)
                     .font(.system(size: 10, weight: .heavy))
-                    .foregroundStyle(HunterTheme.bg)
+                    .foregroundStyle(PlayerTheme.bg)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(status.color)
@@ -258,11 +259,11 @@ private struct GroupCardView: View {
 
             Text(group.name)
                 .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(HunterTheme.textPrimary)
+                .foregroundStyle(PlayerTheme.textPrimary)
 
             Text(group.summaryText())
                 .font(.system(size: 11))
-                .foregroundStyle(HunterTheme.textMuted)
+                .foregroundStyle(PlayerTheme.textMuted)
         }
         .padding(14)
         .hudPanel()
@@ -277,18 +278,18 @@ private struct GroupCardView: View {
                 Label(token)
                     .labelStyle(.iconOnly)
                     .frame(width: 28, height: 28)
-                    .background(HunterTheme.bg)
+                    .background(PlayerTheme.bg)
                     .clipShape(Circle())
-                    .overlay(Circle().strokeBorder(HunterTheme.cyanDim, lineWidth: 1))
+                    .overlay(Circle().strokeBorder(PlayerTheme.cyanDim, lineWidth: 1))
             }
             if overflow > 0 {
                 Text("+\(overflow)")
                     .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(HunterTheme.textMuted)
+                    .foregroundStyle(PlayerTheme.textMuted)
                     .frame(width: 28, height: 28)
-                    .background(HunterTheme.bg)
+                    .background(PlayerTheme.bg)
                     .clipShape(Circle())
-                    .overlay(Circle().strokeBorder(HunterTheme.cyanDim, lineWidth: 1))
+                    .overlay(Circle().strokeBorder(PlayerTheme.cyanDim, lineWidth: 1))
             }
         }
     }

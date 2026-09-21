@@ -3,7 +3,7 @@ import FamilyControls
 import ManagedSettings
 import ManagedSettingsUI
 
-/// Create/edit in one screen, reusing HunterTheme's HUD panel language --
+/// Create/edit in one screen, reusing PlayerTheme's HUD panel language --
 /// no new visual style. `existingGroup == nil` means create; otherwise
 /// every field seeds from the group being edited and Save calls
 /// `manager.updateGroup`, which re-activates enforcement from scratch
@@ -14,6 +14,9 @@ struct GroupDetailView: View {
     @Environment(\.dismiss) private var dismiss
 
     let existingGroup: AppGroup?
+    /// Optional coaching line shown above the form -- used by first-run
+    /// onboarding to walk a brand-new player through their first group.
+    let guidedHint: String?
 
     @State private var name: String
     @State private var selection: FamilyActivitySelection
@@ -26,8 +29,9 @@ struct GroupDetailView: View {
     @State private var isPickerPresented = false
     @State private var showDeleteConfirm = false
 
-    init(existingGroup: AppGroup?) {
+    init(existingGroup: AppGroup?, guidedHint: String? = nil) {
         self.existingGroup = existingGroup
+        self.guidedHint = guidedHint
         let rule = existingGroup?.rule
         _name = State(initialValue: existingGroup?.name ?? "")
         _selection = State(initialValue: existingGroup?.selection ?? FamilyActivitySelection())
@@ -41,12 +45,21 @@ struct GroupDetailView: View {
 
     var body: some View {
         ZStack {
-            HunterBackground()
+            PlayerBackground()
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     Text(existingGroup == nil ? "New Group" : "Edit Group")
                         .font(.system(size: 19, weight: .heavy))
-                        .foregroundStyle(HunterTheme.textPrimary)
+                        .foregroundStyle(PlayerTheme.textPrimary)
+
+                    if let guidedHint {
+                        Text(guidedHint)
+                            .font(.system(size: 12))
+                            .foregroundStyle(PlayerTheme.cyan)
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .hudPanel()
+                    }
 
                     nameField
                     appsSection
@@ -55,7 +68,7 @@ struct GroupDetailView: View {
                     if let error = manager.lastError {
                         Text(error)
                             .font(.footnote)
-                            .foregroundStyle(HunterTheme.danger)
+                            .foregroundStyle(PlayerTheme.danger)
                     }
 
                     actionButtons
@@ -82,8 +95,8 @@ struct GroupDetailView: View {
     private var nameField: some View {
         VStack(alignment: .leading, spacing: 6) {
             HUDLabel(text: "Group Name")
-            TextField("", text: $name, prompt: Text("e.g. Socials").foregroundStyle(HunterTheme.textMuted))
-                .foregroundStyle(HunterTheme.textPrimary)
+            TextField("", text: $name, prompt: Text("e.g. Socials").foregroundStyle(PlayerTheme.textMuted))
+                .foregroundStyle(PlayerTheme.textPrimary)
                 .padding(.horizontal, 14)
                 .frame(height: 44)
                 .hudPanel()
@@ -103,7 +116,7 @@ struct GroupDetailView: View {
                         Text("CHOOSE")
                     }
                     .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(HunterTheme.cyan)
+                    .foregroundStyle(PlayerTheme.cyan)
                 }
                 .buttonStyle(.plain)
                 .disabled(manager.authorizationStatus != .approved)
@@ -113,7 +126,7 @@ struct GroupDetailView: View {
             if selection.applicationTokens.isEmpty {
                 Text("None selected yet.")
                     .font(.system(size: 12))
-                    .foregroundStyle(HunterTheme.textMuted)
+                    .foregroundStyle(PlayerTheme.textMuted)
             } else {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(Array(selection.applicationTokens), id: \.self) { token in
@@ -125,9 +138,9 @@ struct GroupDetailView: View {
                         }
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
-                        .background(HunterTheme.cyan.opacity(0.08))
-                        .overlay(Rectangle().strokeBorder(HunterTheme.cyanDim, lineWidth: 1))
-                        .foregroundStyle(HunterTheme.textPrimary)
+                        .background(PlayerTheme.cyan.opacity(0.08))
+                        .overlay(Rectangle().strokeBorder(PlayerTheme.cyanDim, lineWidth: 1))
+                        .foregroundStyle(PlayerTheme.textPrimary)
                     }
                 }
             }
@@ -158,14 +171,14 @@ struct GroupDetailView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title.uppercased())
                     .font(.system(size: 12, weight: .heavy))
-                    .foregroundStyle(selected ? HunterTheme.bg : HunterTheme.textPrimary)
+                    .foregroundStyle(selected ? PlayerTheme.bg : PlayerTheme.textPrimary)
                 Text(subtitle)
                     .font(.system(size: 10))
-                    .foregroundStyle(selected ? HunterTheme.bg.opacity(0.7) : HunterTheme.textMuted)
+                    .foregroundStyle(selected ? PlayerTheme.bg.opacity(0.7) : PlayerTheme.textMuted)
             }
             .padding(10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(selected ? HunterTheme.cyan : Color.white.opacity(0.05))
+            .background(selected ? PlayerTheme.cyan : Color.white.opacity(0.05))
         }
         .buttonStyle(.plain)
     }
@@ -176,17 +189,17 @@ struct GroupDetailView: View {
                 Toggle(isOn: $hasDailyLimit.animation()) {
                     Text("Daily limit")
                         .font(.system(size: 11))
-                        .foregroundStyle(HunterTheme.textMuted)
+                        .foregroundStyle(PlayerTheme.textMuted)
                 }
                 .toggleStyle(.switch)
-                .tint(HunterTheme.cyan)
+                .tint(PlayerTheme.cyan)
 
                 if hasDailyLimit {
                     numberField(label: "Daily budget", value: $dailyBudgetMinutes, suffix: "min/day", range: 5...480)
                 } else {
                     Text("Apps stay accessible with no automatic lockout -- just reminders below.")
                         .font(.system(size: 10))
-                        .foregroundStyle(HunterTheme.textMuted)
+                        .foregroundStyle(PlayerTheme.textMuted)
                 }
             }
 
@@ -196,20 +209,20 @@ struct GroupDetailView: View {
                 Toggle(isOn: $interruptOnOpen.animation()) {
                     Text("Check in very frequently")
                         .font(.system(size: 11))
-                        .foregroundStyle(HunterTheme.textMuted)
+                        .foregroundStyle(PlayerTheme.textMuted)
                 }
                 .toggleStyle(.switch)
-                .tint(HunterTheme.cyan)
+                .tint(PlayerTheme.cyan)
 
                 if interruptOnOpen {
                     Text("The check-in shows about once a minute of use (outside any free-access window above) instead of on your own schedule -- the platform doesn't support a true \"every single open\" trigger, this is the closest it gets. You can always tap through it -- it's a pause, not a lock, unless the daily budget above runs out.")
                         .font(.system(size: 10))
-                        .foregroundStyle(HunterTheme.textMuted)
+                        .foregroundStyle(PlayerTheme.textMuted)
                 } else {
                     numberField(label: "Remind every", value: $reminderIntervalMinutes, suffix: "min of use", range: 1...60)
                     Text("Apps stay accessible the whole time -- this just brings up a dismissable check-in, never a lock, unless the daily budget above runs out.")
                         .font(.system(size: 10))
-                        .foregroundStyle(HunterTheme.textMuted)
+                        .foregroundStyle(PlayerTheme.textMuted)
                 }
             }
         }
@@ -224,21 +237,21 @@ struct GroupDetailView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label.uppercased())
                 .font(.system(size: 10, weight: .bold))
-                .foregroundStyle(HunterTheme.textMuted)
+                .foregroundStyle(PlayerTheme.textMuted)
             HStack(spacing: 8) {
                 TextField("", value: value, format: .number)
                     .keyboardType(.numberPad)
                     .multilineTextAlignment(.center)
-                    .foregroundStyle(HunterTheme.textPrimary)
+                    .foregroundStyle(PlayerTheme.textPrimary)
                     .frame(width: 64, height: 36)
-                    .overlay(Rectangle().strokeBorder(HunterTheme.cyanDim, lineWidth: 1))
+                    .overlay(Rectangle().strokeBorder(PlayerTheme.cyanDim, lineWidth: 1))
                     .onChange(of: value.wrappedValue) { _, newValue in
                         let clamped = min(max(newValue, range.lowerBound), range.upperBound)
                         if clamped != newValue { value.wrappedValue = clamped }
                     }
                 Text(suffix)
                     .font(.system(size: 11))
-                    .foregroundStyle(HunterTheme.textMuted)
+                    .foregroundStyle(PlayerTheme.textMuted)
             }
         }
     }
@@ -252,12 +265,12 @@ struct GroupDetailView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("FREE-ACCESS WINDOWS")
                 .font(.system(size: 10, weight: .bold))
-                .foregroundStyle(HunterTheme.textMuted)
+                .foregroundStyle(PlayerTheme.textMuted)
             Text(hasDailyLimit
                  ? "No limits or reminders during these windows, regardless of the budget above. Outside them, the budget tracks separately in each remaining gap -- more windows means more separately-resetting budgets, not one shared total."
                  : "No reminders during these windows. Outside them, the normal reminder check-ins apply.")
                 .font(.system(size: 10))
-                .foregroundStyle(HunterTheme.textMuted)
+                .foregroundStyle(PlayerTheme.textMuted)
 
             ForEach($windows) { $window in
                 HStack(spacing: 12) {
@@ -267,12 +280,12 @@ struct GroupDetailView: View {
                         windows.removeAll { $0.id == window.id }
                     } label: {
                         Image(systemName: "minus.circle.fill")
-                            .foregroundStyle(HunterTheme.danger)
+                            .foregroundStyle(PlayerTheme.danger)
                     }
                     .buttonStyle(.plain)
                 }
                 .font(.system(size: 12))
-                .foregroundStyle(HunterTheme.textPrimary)
+                .foregroundStyle(PlayerTheme.textPrimary)
                 .colorScheme(.dark)
             }
 
@@ -285,13 +298,13 @@ struct GroupDetailView: View {
                         Text("ADD WINDOW")
                     }
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(HunterTheme.cyan)
+                    .foregroundStyle(PlayerTheme.cyan)
                 }
                 .buttonStyle(.plain)
             } else {
                 Text("Up to \(GroupRule.maxWindows) windows.")
                     .font(.system(size: 10))
-                    .foregroundStyle(HunterTheme.textMuted)
+                    .foregroundStyle(PlayerTheme.textMuted)
             }
         }
     }
@@ -304,13 +317,13 @@ struct GroupDetailView: View {
                 Text("SAVE GROUP")
                     .font(.system(size: 13, weight: .heavy))
                     .tracking(1)
-                    .foregroundStyle(HunterTheme.textPrimary)
+                    .foregroundStyle(PlayerTheme.textPrimary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 46)
             }
             .buttonStyle(.plain)
             .hudPanel()
-            .shadow(color: HunterTheme.cyan.opacity(0.18), radius: 12)
+            .shadow(color: PlayerTheme.cyan.opacity(0.18), radius: 12)
 
             if existingGroup != nil {
                 Button {
@@ -318,12 +331,12 @@ struct GroupDetailView: View {
                 } label: {
                     Text("DELETE")
                         .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(HunterTheme.danger)
+                        .foregroundStyle(PlayerTheme.danger)
                         .frame(maxWidth: .infinity)
                         .frame(height: 46)
                 }
                 .buttonStyle(.plain)
-                .overlay(Rectangle().strokeBorder(HunterTheme.danger.opacity(0.4), lineWidth: 1))
+                .overlay(Rectangle().strokeBorder(PlayerTheme.danger.opacity(0.4), lineWidth: 1))
             }
         }
     }

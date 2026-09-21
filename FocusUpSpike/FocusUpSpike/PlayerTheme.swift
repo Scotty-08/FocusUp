@@ -5,7 +5,7 @@ import SwiftUI
 /// (HUD panel, pixel-cut-corner frame, aura glow, segmented bar) so
 /// every screen stays visually consistent. Colors mirror the design
 /// mockups exactly, not eyeballed.
-enum HunterTheme {
+enum PlayerTheme {
     // Cyan = everyday interactive "System" chrome.
     static let cyan = Color(red: 0x3E / 255, green: 0xE6 / 255, blue: 0xFF / 255)
     static let cyanDim = cyan.opacity(0.35)
@@ -31,13 +31,13 @@ enum HunterTheme {
 /// The dark ground + a soft cyan ambient corner glow used on every
 /// non-payoff screen (Sign In, Home, Tasks, Character). Kept subtle on
 /// purpose so gold stays the one payoff on the Streak Celebration screen.
-struct HunterBackground: View {
+struct PlayerBackground: View {
     var topRight = true
     var body: some View {
         ZStack {
-            HunterTheme.bg.ignoresSafeArea()
+            PlayerTheme.bg.ignoresSafeArea()
             RadialGradient(
-                colors: [HunterTheme.cyan.opacity(0.08), .clear],
+                colors: [PlayerTheme.cyan.opacity(0.08), .clear],
                 center: topRight ? .topTrailing : .topLeading,
                 startRadius: 4, endRadius: 340
             )
@@ -50,7 +50,7 @@ struct HunterBackground: View {
 struct HUDLabel: View {
     let text: String
     var size: CGFloat = 10
-    var color: Color = HunterTheme.cyan
+    var color: Color = PlayerTheme.cyan
     var body: some View {
         Text(text.uppercased())
             .font(.system(size: size, weight: .bold))
@@ -62,11 +62,11 @@ struct HUDLabel: View {
 /// The bracket-cornered HUD panel background, applied via the
 /// `.hudPanel()` modifier so any content can sit inside one.
 struct HUDPanelBackground: View {
-    var borderColor: Color = HunterTheme.cyanDim
-    var cornerAccent: Color = HunterTheme.cyan
+    var borderColor: Color = PlayerTheme.cyanDim
+    var cornerAccent: Color = PlayerTheme.cyan
     var body: some View {
         ZStack {
-            HunterTheme.panelFill
+            PlayerTheme.panelFill
             Rectangle().strokeBorder(borderColor, lineWidth: 1)
             HUDCorners(color: cornerAccent)
         }
@@ -100,7 +100,7 @@ private struct HUDCorners: View {
 
 extension View {
     /// Applies the bracket-corner HUD panel look as a background.
-    func hudPanel(borderColor: Color = HunterTheme.cyanDim, cornerAccent: Color = HunterTheme.cyan) -> some View {
+    func hudPanel(borderColor: Color = PlayerTheme.cyanDim, cornerAccent: Color = PlayerTheme.cyan) -> some View {
         background(HUDPanelBackground(borderColor: borderColor, cornerAccent: cornerAccent))
     }
 }
@@ -128,7 +128,7 @@ struct PixelFrameShape: Shape {
 
 /// A warm, flickering flame-colored glow -- the "fire aura" effect,
 /// reused everywhere the streak/flame motif shows up (Streak
-/// Celebration, Home's streak pill and Hunter Log tile, and as an
+/// Celebration, Home's streak pill and Player Log tile, and as an
 /// equippable cosmetic on the Character screen).
 struct FireAura: View {
     var diameter: CGFloat = 60
@@ -142,9 +142,9 @@ struct FireAura: View {
         self.withEmbers = withEmbers
         let r = diameter / 2
         emberSpecs = [
-            (HunterTheme.emberOrange, -r * 0.3, -r * 0.7, 0),
-            (HunterTheme.gold, r * 0.75, -r * 0.1, 0.9),
-            (HunterTheme.emberRed, -r * 0.85, r * 0.35, 1.6)
+            (PlayerTheme.emberOrange, -r * 0.3, -r * 0.7, 0),
+            (PlayerTheme.gold, r * 0.75, -r * 0.1, 0.9),
+            (PlayerTheme.emberRed, -r * 0.85, r * 0.35, 1.6)
         ]
     }
 
@@ -153,7 +153,7 @@ struct FireAura: View {
             Circle()
                 .fill(
                     RadialGradient(
-                        colors: [HunterTheme.emberRed.opacity(0.5), HunterTheme.gold.opacity(0.15), .clear],
+                        colors: [PlayerTheme.emberRed.opacity(0.5), PlayerTheme.gold.opacity(0.15), .clear],
                         center: .center, startRadius: 0, endRadius: diameter / 2
                     )
                 )
@@ -203,7 +203,7 @@ private struct Ember: View {
 /// Expanding cyan "scan" rings -- the System's answer to FireAura's warm
 /// flicker/embers, used on the System Check-In screen. A routine re-seal
 /// is not a payoff, so this deliberately stays in the everyday cyan
-/// palette rather than borrowing gold (see HunterTheme's color-system
+/// palette rather than borrowing gold (see PlayerTheme's color-system
 /// rule: gold is reserved for the streak/level-up moment only).
 struct SystemPulse: View {
     var diameter: CGFloat = 110
@@ -213,7 +213,7 @@ struct SystemPulse: View {
         ZStack {
             ForEach(0..<3, id: \.self) { i in
                 Circle()
-                    .strokeBorder(HunterTheme.cyan.opacity(pulse ? 0 : 0.55), lineWidth: 2)
+                    .strokeBorder(PlayerTheme.cyan.opacity(pulse ? 0 : 0.55), lineWidth: 2)
                     .frame(width: diameter, height: diameter)
                     .scaleEffect(pulse ? 1.6 : 0.7)
                     .animation(
@@ -226,7 +226,7 @@ struct SystemPulse: View {
             Circle()
                 .fill(
                     RadialGradient(
-                        colors: [HunterTheme.cyan.opacity(0.35), .clear],
+                        colors: [PlayerTheme.cyan.opacity(0.35), .clear],
                         center: .center, startRadius: 0, endRadius: diameter / 2
                     )
                 )
@@ -258,5 +258,16 @@ struct SegmentedBar: View {
         .frame(height: height)
         .background(color.opacity(0.08))
         .overlay(Rectangle().strokeBorder(color.opacity(0.4), lineWidth: 2))
+    }
+}
+
+extension TaskPriority {
+    /// Shared priority tint (high = danger, medium = gold, low = cyan).
+    var color: Color {
+        switch self {
+        case .high: return PlayerTheme.danger
+        case .medium: return PlayerTheme.gold
+        case .low: return PlayerTheme.cyan
+        }
     }
 }

@@ -2,130 +2,101 @@ import Foundation
 import Combine
 import SwiftUI
 
-/// Cosmetic cloak colors for the Hunter avatar. Unlocked by level, like
-/// everything else on this screen -- nothing here is purchasable, only
-/// earned.
-enum CloakColor: Int, CaseIterable, Codable {
-    case cyan, storm, ember, slate
-
-    var color: Color {
-        switch self {
-        case .cyan: return HunterTheme.cyan
-        case .storm: return HunterTheme.steel
-        case .ember: return HunterTheme.emberRed
-        case .slate: return Color(white: 0.24)
-        }
-    }
-
-    var label: String {
-        switch self {
-        case .cyan: return "Cyan"
-        case .storm: return "Storm"
-        case .ember: return "Ember"
-        case .slate: return "Slate"
-        }
-    }
-
-    var unlockLevel: Int {
-        switch self {
-        case .cyan: return 1
-        case .storm: return 3
-        case .ember: return 5
-        case .slate: return 8
-        }
-    }
+/// What one quest completion paid out. `newLevel` is non-nil only when
+/// this reward pushed the player into a new level.
+struct QuestReward: Equatable {
+    let xp: Int
+    let coins: Int
+    let newLevel: Int?
 }
 
-enum HunterStat {
-    case focus, discipline
-}
-
-/// The "Hunter" character sheet: level, XP, and three stats, all derived
-/// from the SAME real numbers Home already shows (StatsStore), plus a
-/// small number of points the player can allocate themselves as they
-/// level up. Nothing here is fabricated -- Consistency is intentionally
-/// not spendable, since it's meant to read directly off your streak.
+/// The player's progression and look.
 ///
-/// This is v2/stretch scope Scott asked to see built for real -- it's
-/// additive on top of the existing feasibility-spike data, not a
-/// replacement for any of it.
+/// Two separate currencies, on purpose:
+/// - EXP only ever goes up and only drives the level -- it is never spent.
+/// - Coins are the spendable balance, earned alongside EXP and spent on
+///   avatar upgrades (see AvatarCatalog).
+///
+/// Everything is earned by clearing quests; nothing is fabricated from
+/// other stats. There are no skill points or stat sheets anymore.
 @MainActor
 final class CharacterStore: ObservableObject {
     static let shared = CharacterStore()
 
     private let defaults = UserDefaults.standard
-    private let nameKey = "focusUp.hunter.name"
-    private let cloakKey = "focusUp.hunter.cloak"
-    private let spentFocusKey = "focusUp.hunter.spentFocus"
-    private let spentDisciplineKey = "focusUp.hunter.spentDiscipline"
+    private let nameKey = "focusUp.player.name"
+    private let avatarKey = "focusUp.player.avatar"
+    private let xpKey = "focusUp.player.xp"
+    private let coinsKey = "focusUp.player.coins"
+    private let ownedKey = "focusUp.player.ownedItems"
+    private let rewardedKey = "focusUp.player.rewardedQuests"
 
     @Published var name: String
-    @Published var cloak: CloakColor
-    @Published private(set) var spentFocusPoints: Int
-    @Published private(set) var spentDisciplinePoints: Int
+    @Published private(set) var avatar: AvatarConfig
+    @Published private(set) var totalXP: Int
+    @Published private(set) var coins: Int
+    @Published private(set) var ownedItems: Set<String>
+    private var rewardedQuestIDs: Set<String>
 
     private init() {
         name = defaults.string(forKey: nameKey)
             ?? AuthManager.shared.displayName?.uppercased()
-            ?? "HUNTER"
-        cloak = CloakColor(rawValue: defaults.integer(forKey: cloakKey)) ?? .cyan
-        spentFocusPoints = defaults.integer(forKey: spentFocusKey)
-        spentDisciplinePoints = defaults.integer(forKey: spentDisciplineKey)
+            ?? "PLAYER"
+        if let data = defaults.data(forKey: avatarKey),
+           let saved = try? JSONDecoder().decode(AvatarConfig.self, from: data) {
+            avatar = saved
+        } else {
+            avatar = .starter
+        }
+        totalXP = defaults.integer(forKey: xpKey)
+        coins = defaults.integer(forKey: coinsKey)
+        ownedItems = Set(defaults.stringArray(forKey: ownedKey) ?? [])
+        rewardedQuestIDs = Set(defaults.stringArray(forKey: rewardedKey) ?? [])
     }
 
-    // MARK: - Real data (same source Home's Hunter Log reads)
+    // MARK: - Level
 
-    var completedCount: Int { StatsStore.completedCount }
-    var ignoreCount: Int { StatsStore.ignoreCount }
-    var currentStreak: Int { StatsStore.currentStreak }
+    static let xpPerLevel = 200
 
-    // MARK: - XP / Level
-
-    static let xpPerLevel = 150
-
-    /// +100 XP per cleared quest, -25 per abandoned one, +15 per point
-    /// of current streak. Simple and legible on purpose -- the point is
-    /// that clearing quests and holding your streak is what levels you
-    /// up, not an opaque formula.
-    var xp: Int {
-        max(0, completedCount * 100 - ignoreCount * 25 + currentStreak * 15)
-    }
-
-    var level: Int { 1 + xp / Self.xpPerLevel }
-    var xpIntoLevel: Int { xp % Self.xpPerLevel }
+    var level: Int { 1 + totalXP / Self.xpPerLevel }
+    var xpIntoLevel: Int { totalXP % Self.xpPerLevel }
     var xpProgress: Double { Double(xpIntoLevel) / Double(Self.xpPerLevel) }
 
-    // MARK: - Stat points
+    // MARK: - Rewards
 
-    /// One point per level above 1, spendable on Focus or Discipline.
-    var totalPoints: Int { max(0, level - 1) }
-    var unspentPoints: Int { max(0, totalPoints - spentFocusPoints - spentDisciplinePoints) }
-
-    /// Focus = quests actually cleared, plus anything spent into it.
-    var focusStat: Int { completedCount + spentFocusPoints }
-    /// Discipline = seals you didn't break (cleared minus abandoned,
-    /// floored at 0), plus anything spent into it.
-    var disciplineStat: Int { max(0, completedCount - ignoreCount) + spentDisciplinePoints }
-    /// Consistency = your streak, doubled for a readable bar. Not
-    /// spendable -- it only moves if your real streak does.
-    var consistencyStat: Int { currentStreak * 2 }
-
-    static let statBarMax = 20.0
-    func fraction(for value: Int) -> Double { min(1, Double(value) / Self.statBarMax) }
-
-    func spendPoint(on stat: HunterStat) {
-        guard unspentPoints > 0 else { return }
-        switch stat {
-        case .focus:
-            spentFocusPoints += 1
-            defaults.set(spentFocusPoints, forKey: spentFocusKey)
-        case .discipline:
-            spentDisciplinePoints += 1
-            defaults.set(spentDisciplinePoints, forKey: spentDisciplineKey)
+    /// Scaled by priority -- harder quests pay more. A medium quest is
+    /// 100 EXP + 20 coins.
+    static func reward(for priority: TaskPriority) -> (xp: Int, coins: Int) {
+        switch priority {
+        case .low: return (50, 10)
+        case .medium: return (100, 20)
+        case .high: return (150, 30)
         }
     }
 
-    // MARK: - Identity / loadout
+    /// Pays out EXP and coins for completing `task`, once per quest.
+    /// Returns nil if this quest already paid out, so un-checking and
+    /// re-checking the same quest can't farm rewards. (Deleting a quest
+    /// and re-adding it creates a new quest with a new id, which this
+    /// can't distinguish from genuinely new work -- an accepted limit,
+    /// not a bug.)
+    @discardableResult
+    func rewardQuest(_ task: FocusTask) -> QuestReward? {
+        let key = task.id.uuidString
+        guard !rewardedQuestIDs.contains(key) else { return nil }
+        rewardedQuestIDs.insert(key)
+        defaults.set(Array(rewardedQuestIDs), forKey: rewardedKey)
+
+        let payout = Self.reward(for: task.priority)
+        let levelBefore = level
+        totalXP += payout.xp
+        coins += payout.coins
+        defaults.set(totalXP, forKey: xpKey)
+        defaults.set(coins, forKey: coinsKey)
+        return QuestReward(xp: payout.xp, coins: payout.coins, newLevel: level > levelBefore ? level : nil)
+    }
+
+    // MARK: - Identity
 
     func rename(_ newName: String) {
         let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -135,15 +106,60 @@ final class CharacterStore: ObservableObject {
         defaults.set(upper, forKey: nameKey)
     }
 
-    func setCloak(_ c: CloakColor) {
-        guard c.unlockLevel <= level else { return }
-        cloak = c
-        defaults.set(c.rawValue, forKey: cloakKey)
+    // MARK: - Avatar
+
+    func isOwned(_ item: AvatarItem) -> Bool {
+        item.cost == 0 || ownedItems.contains(item.id)
     }
 
-    /// Titles unlock by level; only the next upcoming one is shown on
-    /// the loadout card today (matches the design canvas mockup).
-    var nextTitle: (name: String, unlockLevel: Int) {
-        ("Seeker of the Seal", 6)
+    func isEquipped(_ item: AvatarItem) -> Bool {
+        avatar.itemID(for: item.slot) == item.id
+    }
+
+    /// First-run creation: applies a whole config at once, falling back
+    /// to the starter option for any slot whose item isn't actually
+    /// owned (creation only offers free items, but this never trusts
+    /// its caller to have checked).
+    func setAvatar(_ config: AvatarConfig) {
+        var checked = config
+        for slot in AvatarSlot.allCases {
+            let id = config.itemID(for: slot)
+            if let item = AvatarCatalog.item(id), isOwned(item), item.slot == slot {
+                continue
+            }
+            checked = checked.setting(AvatarConfig.starter.itemID(for: slot), for: slot)
+        }
+        saveAvatar(checked)
+    }
+
+    func equip(_ item: AvatarItem) {
+        guard isOwned(item) else { return }
+        saveAvatar(avatar.setting(item.id, for: item.slot))
+    }
+
+    enum PurchaseResult {
+        case purchased
+        case alreadyOwned
+        case insufficientCoins
+    }
+
+    /// Buys `item` with coins and equips it.
+    @discardableResult
+    func buy(_ item: AvatarItem) -> PurchaseResult {
+        guard !isOwned(item) else { return .alreadyOwned }
+        guard coins >= item.cost else { return .insufficientCoins }
+        coins -= item.cost
+        ownedItems.insert(item.id)
+        defaults.set(coins, forKey: coinsKey)
+        defaults.set(Array(ownedItems), forKey: ownedKey)
+        saveAvatar(avatar.setting(item.id, for: item.slot))
+        return .purchased
+    }
+
+    private func saveAvatar(_ config: AvatarConfig) {
+        avatar = config
+        if let data = try? JSONEncoder().encode(config) {
+            defaults.set(data, forKey: avatarKey)
+        }
     }
 }

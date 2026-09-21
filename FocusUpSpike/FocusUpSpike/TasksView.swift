@@ -24,7 +24,7 @@ struct TasksView: View {
 
     var body: some View {
         ZStack {
-            HunterBackground(topRight: false)
+            PlayerBackground(topRight: false)
             VStack(spacing: 0) {
                 Button {
                     isCreatingQuest = true
@@ -35,19 +35,19 @@ struct TasksView: View {
                     }
                     .font(.system(size: 13, weight: .heavy))
                     .tracking(1)
-                    .foregroundStyle(HunterTheme.textPrimary)
+                    .foregroundStyle(PlayerTheme.textPrimary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 46)
                 }
                 .buttonStyle(.plain)
                 .hudPanel()
-                .shadow(color: HunterTheme.cyan.opacity(0.18), radius: 12)
+                .shadow(color: PlayerTheme.cyan.opacity(0.18), radius: 12)
                 .padding(20)
 
                 if manager.tasks.isEmpty {
                     Spacer()
                     Text("No quests yet. Tap Make a New Quest above.")
-                        .foregroundStyle(HunterTheme.textMuted)
+                        .foregroundStyle(PlayerTheme.textMuted)
                     Spacer()
                 } else {
                     List {
@@ -69,7 +69,7 @@ struct TasksView: View {
 
                 Text("Every quest is active -- all of them show on your groups' shields, there's no single quest to pick. Sorted here by priority, then deadline. Tap a quest to edit it.")
                     .font(.system(size: 10))
-                    .foregroundStyle(HunterTheme.textMuted)
+                    .foregroundStyle(PlayerTheme.textMuted)
                     .padding(20)
             }
         }
@@ -93,7 +93,7 @@ struct TasksView: View {
                 manager.toggleTaskCompletion(task)
             } label: {
                 Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(task.isCompleted ? Color.green : HunterTheme.textMuted)
+                    .foregroundStyle(task.isCompleted ? Color.green : PlayerTheme.textMuted)
             }
             .buttonStyle(.plain)
 
@@ -103,16 +103,16 @@ struct TasksView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(task.title)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(task.isCompleted ? HunterTheme.textMuted : HunterTheme.textPrimary)
+                    .foregroundStyle(task.isCompleted ? PlayerTheme.textMuted : PlayerTheme.textPrimary)
                     .strikethrough(task.isCompleted)
                 if let due = task.dueDate {
                     Text("DEADLINE \(due.formatted(date: .abbreviated, time: .omitted).uppercased())\(task.isCompleted ? " · CLEARED" : "")")
                         .font(.system(size: 10))
-                        .foregroundStyle(isPastDue(due) && !task.isCompleted ? HunterTheme.danger : HunterTheme.textMuted)
+                        .foregroundStyle(isPastDue(due) && !task.isCompleted ? PlayerTheme.danger : PlayerTheme.textMuted)
                 } else {
                     Text(task.isCompleted ? "NO DEADLINE · CLEARED" : "NO DEADLINE")
                         .font(.system(size: 10))
-                        .foregroundStyle(HunterTheme.textMuted)
+                        .foregroundStyle(PlayerTheme.textMuted)
                 }
             }
 
@@ -131,9 +131,9 @@ struct TasksView: View {
 
     private func priorityColor(_ priority: TaskPriority) -> Color {
         switch priority {
-        case .high: return HunterTheme.danger
-        case .medium: return HunterTheme.gold
-        case .low: return HunterTheme.cyan
+        case .high: return PlayerTheme.danger
+        case .medium: return PlayerTheme.gold
+        case .low: return PlayerTheme.cyan
         }
     }
 

@@ -14,7 +14,7 @@ struct AuthView: View {
 
     var body: some View {
         ZStack {
-            HunterBackground(topRight: false)
+            PlayerBackground(topRight: false)
             ScrollView {
                 VStack(spacing: 28) {
                     brandMark
@@ -42,15 +42,15 @@ struct AuthView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 4))
 
                         HStack(spacing: 12) {
-                            Rectangle().fill(HunterTheme.cyanDim).frame(height: 1)
-                            HUDLabel(text: "or", size: 10, color: HunterTheme.textMuted)
-                            Rectangle().fill(HunterTheme.cyanDim).frame(height: 1)
+                            Rectangle().fill(PlayerTheme.cyanDim).frame(height: 1)
+                            HUDLabel(text: "or", size: 10, color: PlayerTheme.textMuted)
+                            Rectangle().fill(PlayerTheme.cyanDim).frame(height: 1)
                         }
 
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Preview only right now -- this doesn't create a real account yet, just lets you try the flow. Real accounts need a backend decision first.")
                                 .font(.system(size: 10))
-                                .foregroundStyle(HunterTheme.emberOrange)
+                                .foregroundStyle(PlayerTheme.emberOrange)
 
                             hudField(placeholder: "Email or phone number", text: $email, secure: false)
                             hudField(placeholder: "Password", text: $password, secure: true)
@@ -67,7 +67,7 @@ struct AuthView: View {
                                 Text("ENTER")
                                     .font(.system(size: 15, weight: .bold))
                                     .tracking(1.5)
-                                    .foregroundStyle(HunterTheme.cyan)
+                                    .foregroundStyle(PlayerTheme.cyan)
                                     .frame(maxWidth: .infinity)
                                     .frame(height: 50)
                             }
@@ -78,8 +78,8 @@ struct AuthView: View {
                                 // Decorative only for now -- matches the design
                                 // mockup's non-functional "Create an account" link.
                             } label: {
-                                (Text("New here? ").foregroundStyle(HunterTheme.textMuted)
-                                    + Text("Create an account").foregroundStyle(HunterTheme.cyan))
+                                (Text("New here? ").foregroundStyle(PlayerTheme.textMuted)
+                                    + Text("Create an account").foregroundStyle(PlayerTheme.cyan))
                                     .font(.system(size: 12))
                             }
                             .buttonStyle(.plain)
@@ -88,7 +88,7 @@ struct AuthView: View {
 
                         if let errorText {
                             Text(errorText)
-                                .foregroundStyle(HunterTheme.danger)
+                                .foregroundStyle(PlayerTheme.danger)
                                 .font(.footnote)
                         }
                     }
@@ -104,26 +104,26 @@ struct AuthView: View {
         VStack(spacing: 10) {
             ZStack {
                 Circle()
-                    .fill(HunterTheme.panelFill)
+                    .fill(PlayerTheme.panelFill)
                     .frame(width: 72, height: 72)
                 Circle()
-                    .strokeBorder(HunterTheme.cyan.opacity(0.75), lineWidth: 1.5)
+                    .strokeBorder(PlayerTheme.cyan.opacity(0.75), lineWidth: 1.5)
                     .frame(width: 72, height: 72)
-                    .shadow(color: HunterTheme.cyan.opacity(0.45), radius: 10)
+                    .shadow(color: PlayerTheme.cyan.opacity(0.45), radius: 10)
                 Image(systemName: "chevron.up")
                     .font(.system(size: 22, weight: .bold))
-                    .foregroundStyle(HunterTheme.cyan)
-                    .shadow(color: HunterTheme.cyan.opacity(0.6), radius: 8)
+                    .foregroundStyle(PlayerTheme.cyan)
+                    .shadow(color: PlayerTheme.cyan.opacity(0.6), radius: 8)
             }
 
             HUDLabel(text: "[ System ]", size: 11)
 
-            (Text("FOCUS").foregroundStyle(HunterTheme.textPrimary) + Text("UP").foregroundStyle(HunterTheme.cyan))
+            (Text("FOCUS").foregroundStyle(PlayerTheme.textPrimary) + Text("UP").foregroundStyle(PlayerTheme.cyan))
                 .font(.system(size: 28, weight: .heavy))
 
             Text("A quest is only cleared\nwhen the work is done.")
                 .font(.system(size: 13))
-                .foregroundStyle(HunterTheme.textMuted)
+                .foregroundStyle(PlayerTheme.textMuted)
                 .multilineTextAlignment(.center)
         }
     }
@@ -131,14 +131,14 @@ struct AuthView: View {
     private func hudField(placeholder: String, text: Binding<String>, secure: Bool) -> some View {
         Group {
             if secure {
-                SecureField("", text: text, prompt: Text(placeholder).foregroundStyle(HunterTheme.textMuted))
+                SecureField("", text: text, prompt: Text(placeholder).foregroundStyle(PlayerTheme.textMuted))
             } else {
-                TextField("", text: text, prompt: Text(placeholder).foregroundStyle(HunterTheme.textMuted))
+                TextField("", text: text, prompt: Text(placeholder).foregroundStyle(PlayerTheme.textMuted))
                     .textInputAutocapitalization(.never)
                     .keyboardType(.emailAddress)
             }
         }
-        .foregroundStyle(HunterTheme.textPrimary)
+        .foregroundStyle(PlayerTheme.textPrimary)
         .padding(.horizontal, 14)
         .frame(height: 46)
         .hudPanel()
