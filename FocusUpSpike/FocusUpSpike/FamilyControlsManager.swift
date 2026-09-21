@@ -258,7 +258,10 @@ final class FamilyControlsManager: ObservableObject {
     /// stranded from a previous configuration.
     private func deactivate(_ group: AppGroup) {
         ManagedSettingsStore(named: GroupIdentity.storeName(for: group.id)).clearAllSettings()
-        var names: [DeviceActivityName] = [GroupIdentity.reminderActivityName(for: group.id)]
+        var names: [DeviceActivityName] = [
+            GroupIdentity.reminderActivityName(for: group.id),
+            GroupIdentity.cooldownActivityName(for: group.id)
+        ]
         for i in 0...GroupRule.maxWindows {
             names.append(GroupIdentity.budgetActivityName(for: group.id, segment: i))
         }
@@ -275,25 +278,22 @@ final class FamilyControlsManager: ObservableObject {
         lastError = nil
     }
 
-    /// Limit-rule groups never lock you out just for existing -- the ONE
-    /// real lockout is a daily budget, if one is set, being used up
-    /// (that's an actual ManagedSettings shield the user can't dismiss,
-    /// per "when you reach your daily limit it should block the app").
-    /// Otherwise "limiting" means a dismissable interruption shield, via
-    /// the SAME cumulative-usage-threshold mechanism either way --
-    /// interruptOnOpen just forces the shortest interval (1 minute)
-    /// instead of the user's chosen reminderIntervalMinutes. Both modes
-    /// MUST release the token on dismiss (see ShieldActionExtension) --
+    /// Shield-mode (Limit-rule) groups greet the user with the shield
+    /// screen, but never lock them out just for existing -- the ONE real
+    /// lockout is a daily budget, if one is set, being used up (an
+    /// actual ManagedSettings shield the user can't dismiss). The group
+    /// starts SHIELDED so the first open is greeted; tapping through
+    /// releases the token (ShieldActionExtension) and starts a
+    /// "shield again after N minutes" cooldown (GroupCooldown), so a
+    /// later open is greeted again. The while-you-use-it reminder
+    /// cadence is always registered too, via the same cumulative-usage-
+    /// threshold mechanism. Every dismiss MUST release the token --
     /// device-tested: leaving it shielded and returning
     /// ShieldActionResponse.none does NOT grant even momentary access,
-    /// it just re-shows the shield with no way out. An earlier version
-    /// of interruptOnOpen tried exactly that (permanently shielded,
-    /// never released) on the theory that .none would let each attempt
-    /// through -- confirmed wrong on-device, app became completely
-    /// unreachable. There is no "let this one attempt through" signal in
-    /// this API, so "shown on every single open" isn't literally
-    /// achievable; the shortest-interval reminder is the honest
-    /// approximation.
+    /// it just re-shows the shield with no way out. There is no signal
+    /// for "the user left the app" in this API, so "shielded on every
+    /// single open" isn't literally achievable; the cooldown is the
+    /// honest approximation.
     /// Free-access windows suspend the reminder and budget tracking
     /// alike while they're active. See GroupIdentity (GroupStore.swift)
     /// for the DeviceActivityName scheme this depends on. Built only from
@@ -316,18 +316,20 @@ final class FamilyControlsManager: ObservableObject {
             .prefix(GroupRule.maxWindows)
             .sorted { ($0.startHour, $0.startMinute) < ($1.startHour, $1.startMinute) }
 
-        // Always starts accessible -- device-tested (see git history):
-        // leaving a token permanently shielded and relying on
-        // ShieldActionResponse.none to grant "just this one attempt"
-        // through does NOT work. .none with the token still present just
-        // re-shows the shield -- there is no "let this one attempt
-        // through" signal in this API, only "release the token" or
-        // "don't." interruptOnOpen used to start pre-shielded on that
-        // false assumption; see the reminder-registration comment below
-        // for how it's actually built now.
+        // Starts shielded (the "greeting") unless we're already inside a
+        // free-access window. Tapping through releases the token, see the
+        // doc comment above. Window start/end callbacks aren't guaranteed
+        // to fire retroactively for an interval already in progress, so
+        // "now" is checked directly.
         let store = ManagedSettingsStore(named: GroupIdentity.storeName(for: group.id))
-        store.shield.applications = nil
-        GroupRuntimeState.setShieldReason(nil, for: group.id)
+        GroupCooldown.stop(groupID: group.id)
+        if sortedWindows.contains(where: { $0.contains(Date()) }) {
+            store.shield.applications = nil
+            GroupRuntimeState.setShieldReason(nil, for: group.id)
+        } else {
+            store.shield.applications = tokens
+            GroupRuntimeState.setShieldReason(.limitReminder, for: group.id)
+        }
 
         // Window boundary activities register whenever there ARE windows,
         // independent of whether a daily budget is set -- a window always
@@ -370,34 +372,16 @@ final class FamilyControlsManager: ObservableObject {
             )
         }
 
-        // Periodic reminder cadence -- unconditional for every Limit
-        // group now (see this function's doc comment for why
-        // interruptOnOpen no longer skips it): interruptOnOpen just
-        // forces the shortest possible interval (1 minute -- the
-        // numberField's own floor) instead of the user-chosen one, since
-        // this proven cumulative-threshold mechanism is the only thing
-        // that actually re-shields correctly on release. It's an honest
-        // "checks in about as often as the platform allows," not a
-        // literal "every single open" -- that promise can't be kept with
-        // this API. Copy is built in ShieldConfigurationExtension: the
-        // full open-quest list if there is one, otherwise a "why am I
-        // checking this?" reflection prompt -- either way a dismissable
-        // nudge, never a lock.
-        let effectiveReminderMinutes = group.rule.interruptOnOpen ? 1 : group.rule.reminderIntervalMinutes
-        // GroupActivityMarks.marks' default maxCount (30) was sized for
-        // this codebase's original single check-in feature, where
-        // intervals were tens of minutes -- at interruptOnOpen's forced
-        // 1-minute interval, 30 marks would only cover 30 minutes of
-        // cumulative daily use before silently going quiet for the rest
-        // of the day (no threshold left registered to fire). Scaled up
-        // here so interruptOnOpen keeps covering roughly the same total
-        // daily use (~1 hour) a normal reminder interval already does.
-        // Still a bounded, finite registration count, not "hundreds" --
-        // but same caveat as the 30 default before it: Apple's actual
-        // per-activity event ceiling isn't documented anywhere this
-        // codebase has found, so watch for reminders drying out after an
-        // hour of continuous use during rehearsal.
-        let markCap = group.rule.interruptOnOpen ? 60 : 30
+        // While-you-use-it reminder cadence -- always registered for
+        // every Limit group. A dismissable nudge, never a lock: the
+        // full open-quest list's most pressing quest if there is one,
+        // otherwise a "why am I checking this?" reflection prompt (copy
+        // is built in ShieldConfigurationExtension). Marks are capped
+        // at 30 (Apple's per-activity event ceiling isn't documented
+        // anywhere this codebase has found -- watch for reminders drying
+        // out after long continuous use during rehearsal).
+        let effectiveReminderMinutes = group.rule.reminderIntervalMinutes
+        let markCap = 30
         var events: [DeviceActivityEvent.Name: DeviceActivityEvent] = [:]
         for mark in GroupActivityMarks.marks(intervalMinutes: effectiveReminderMinutes, maxCount: markCap) {
             events[GroupIdentity.eventName(groupID: group.id, kind: "reminder", mark: mark)] =

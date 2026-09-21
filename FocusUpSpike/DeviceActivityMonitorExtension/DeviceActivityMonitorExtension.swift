@@ -13,7 +13,8 @@ import UserNotifications
 /// given callback plays: "budget<N>" (one per gap between windows, or
 /// just "budget0" covering the whole day if there are no windows),
 /// "window<N>" (one per free-access window, used only for its
-/// start/end boundaries), or "reminder". See
+/// start/end boundaries), "reminder", or "cooldown" (the one-off
+/// "shield again after N minutes" timer, see GroupCooldown). See
 /// FamilyControlsManager.activateLimit for how those get registered.
 /// Block-rule groups never appear here at all (they register no
 /// DeviceActivityName).
@@ -88,21 +89,35 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
     override func intervalDidEnd(for activity: DeviceActivityName) {
         super.intervalDidEnd(for: activity)
 
-        guard let (groupID, kind) = GroupIdentity.parse(activity), kind.hasPrefix("window"),
-              GroupRuntimeState.exceededToday(groupID),
+        guard let (groupID, kind) = GroupIdentity.parse(activity),
               let group = GroupStore.group(for: groupID) else { return }
-        // A free-access window just ended and today's budget was already
-        // used up before it started -- re-lock for the remainder of the
-        // day (the next budget segment is registered starting exactly at
-        // this same boundary and will keep tracking usage from here).
-        // No separate interruptOnOpen case needed here: it's just the
-        // reminder cadence at a forced short interval now (see
-        // FamilyControlsManager.activateLimit), which resumes on its own
-        // once the window's reminder-skip guard (in
-        // eventDidReachThreshold above) stops applying -- nothing to
-        // eagerly "resume" the instant the window ends.
-        ManagedSettingsStore(named: GroupIdentity.storeName(for: groupID)).shield.applications = group.selection.applicationTokens
-        GroupRuntimeState.setShieldReason(.limitBudgetExceeded, for: groupID)
+        let store = ManagedSettingsStore(named: GroupIdentity.storeName(for: groupID))
+
+        if kind.hasPrefix("window") {
+            // A free-access window just ended. If today's budget was
+            // already used up before it started, re-lock for the rest of
+            // the day (the next budget segment is registered starting
+            // exactly at this boundary and keeps tracking from here).
+            // Otherwise the group is back to its normal Shield behavior:
+            // the shield greets the user on their next open.
+            if GroupRuntimeState.exceededToday(groupID) {
+                GroupRuntimeState.setShieldReason(.limitBudgetExceeded, for: groupID)
+            } else {
+                GroupRuntimeState.setShieldReason(.limitReminder, for: groupID)
+            }
+            store.shield.applications = group.selection.applicationTokens
+        } else if kind == "cooldown" {
+            // The "shield again after N minutes" timer set when the user
+            // last tapped through the shield (GroupCooldown.start, called
+            // from ShieldActionExtension). Never touch a group that's
+            // already shielded/locked, or inside a free-access window
+            // (the window's own end re-shields it).
+            guard !GroupRuntimeState.exceededToday(groupID),
+                  GroupRuntimeState.shieldReason(for: groupID) == nil,
+                  !group.rule.windows.contains(where: { $0.contains(Date()) }) else { return }
+            GroupRuntimeState.setShieldReason(.limitReminder, for: groupID)
+            store.shield.applications = group.selection.applicationTokens
+        }
     }
 
     /// Silently does nothing if notification permission was never
