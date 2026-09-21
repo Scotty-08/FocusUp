@@ -35,6 +35,24 @@ struct FocusTask: Identifiable, Codable, Equatable {
     var isCompleted: Bool = false
     var dueDate: Date?
     var priority: TaskPriority = .medium
+
+    /// Set only for a quest imported from a Canvas assignment (nil for
+    /// anything the user typed in themselves). This is Canvas's own
+    /// `html_url` for the assignment -- already the right domain for
+    /// whichever school's Canvas the quest came from, so opening it
+    /// works the same for every Canvas instance, not just one school.
+    /// Deliberately NOT touched by completing the quest (see
+    /// FamilyControlsManager.toggleTaskCompletion) -- "Open in Canvas"
+    /// is a separate action so checking a quest off in FocusUp never
+    /// surprises someone by also leaving the app.
+    var canvasURL: URL?
+
+    /// Canvas's own id for the assignment this quest came from (nil for
+    /// a quest the user typed in themselves). This, not the title or
+    /// URL, is what CanvasClient.mergeCanvasAssignments matches on when
+    /// re-syncing, so re-running a sync updates the existing quest in
+    /// place instead of creating a duplicate.
+    var canvasAssignmentID: Int?
 }
 
 /// Shared (App Group) quest list -- written from the main app (add/
