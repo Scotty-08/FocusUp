@@ -194,7 +194,7 @@ struct GroupDetailView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Toggle(isOn: $interruptOnOpen.animation()) {
-                    Text("Show check-in before every open")
+                    Text("Check in very frequently")
                         .font(.system(size: 11))
                         .foregroundStyle(HunterTheme.textMuted)
                 }
@@ -202,7 +202,7 @@ struct GroupDetailView: View {
                 .tint(HunterTheme.cyan)
 
                 if interruptOnOpen {
-                    Text("The check-in shows every single time you try to open this group's apps (outside any free-access window above), not just periodically. You can always tap through it -- it's a pause, not a lock, unless the daily budget above runs out.")
+                    Text("The check-in shows about once a minute of use (outside any free-access window above) instead of on your own schedule -- the platform doesn't support a true \"every single open\" trigger, this is the closest it gets. You can always tap through it -- it's a pause, not a lock, unless the daily budget above runs out.")
                         .font(.system(size: 10))
                         .foregroundStyle(HunterTheme.textMuted)
                 } else {

@@ -133,7 +133,7 @@ struct AppGroup: Identifiable, Codable, Equatable {
                 parts.append(extra > 0 ? "No limits \(first.label), +\(extra) more" : "No limits \(first.label)")
             }
             if rule.interruptOnOpen {
-                parts.append("Shown every time you open it")
+                parts.append("Checks in about every minute")
             }
             return parts.joined(separator: ". ") + "."
         }
@@ -301,11 +301,12 @@ enum GroupRuntimeState {
 }
 
 /// Cumulative-usage mark math shared by the Limit-rule daily budget and
-/// its reminder cadence -- generalizes the single-purpose
-/// FocusUpActivity.marks(intervalSeconds:) this app used before groups
-/// existed (that one is now legacy/migration-only, see GoalStore.swift).
-/// Capped at maxCount marks for the same reason as before: a short demo
-/// interval shouldn't try to register hundreds of events.
+/// its reminder cadence -- generalizes the same-shaped helper this app's
+/// pre-Groups single global check-in used to use (GoalStore.swift's
+/// FocusUpActivity, now stripped down to legacy/migration-only). Capped
+/// at maxCount marks so a short interval doesn't try to register
+/// hundreds of events -- see the call sites in
+/// FamilyControlsManager.activateLimit for how that cap is chosen.
 enum GroupActivityMarks {
     static func marks(intervalMinutes: Int, maxCount: Int = 30) -> [Int] {
         guard intervalMinutes > 0 else { return [] }

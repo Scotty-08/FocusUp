@@ -25,13 +25,16 @@ import UserNotifications
 ///   routes the user into FocusUp's Quests tab via routeToQuests below,
 ///   since they're leaving this app, not continuing to use it. Otherwise
 ///   (no open quests, or the secondary "Dismiss" button) either button
-///   just dismisses the nudge and returns `.none` (not `.close`), which
-///   drops the user back into the app they were already using instead of
-///   kicking them out -- no task completion, no ignore recorded. If the
-///   group's rule has `interruptOnOpen` set, dismissing does NOT remove
-///   the token from the store (see handleLimit) -- the shield reappears
-///   on the next open, giving "shown before every open" instead of
-///   "shown periodically."
+///   just dismisses the nudge, ALWAYS removes the token, and returns
+///   `.none` (not `.close`), which drops the user back into the app they
+///   were already using instead of kicking them out -- no task
+///   completion, no ignore recorded. `interruptOnOpen` no longer changes
+///   this dismiss behavior (see FamilyControlsManager.activateLimit's
+///   doc comment): an earlier version left the token shielded for that
+///   mode on the theory that `.none` would grant the current attempt
+///   through anyway, which device testing proved false -- it just made
+///   the app permanently unreachable. `interruptOnOpen` now only forces
+///   a much shorter reminder cadence, it doesn't touch this code path.
 /// - Limit budget-exceeded lockout: neither button releases the app --
 ///   the token is deliberately left in the store so the restriction
 ///   survives the tap. Still unverified on-device; confirm before
@@ -130,22 +133,21 @@ class ShieldActionExtension: ShieldActionDelegate {
             // exactly as it is either way (whether it stays because of
             // interruptOnOpen is irrelevant on this path).
             routeToQuests(completionHandler: completionHandler)
-        case .limitReminder where group.rule.interruptOnOpen:
-            // Secondary ("Dismiss"), or primary with no open quests to
-            // route to -- this group wants the interruption on EVERY
-            // open, so leave the token in the store so the shield
-            // reappears the next time the app is (re)opened. .none just
-            // lets the CURRENT attempt through without touching
-            // enforcement at all; no task completion or ignore recorded
-            // either way.
-            completionHandler(.none)
         default:
-            // .limitReminder in periodic mode (or an unexpected nil) --
-            // just a nudge, dismiss it without recording completion or
-            // ignore. The next reminder mark will reshield it. .none
-            // (not .close) is what drops the user back into the app they
-            // were already using, rather than kicking them out to the
-            // home screen -- "Continue" should actually continue.
+            // .limitReminder (or an unexpected nil) -- just a nudge,
+            // dismiss it without recording completion or ignore. The
+            // token IS always removed here, regardless of interruptOnOpen
+            // -- device-tested: leaving it shielded and returning .none
+            // does NOT grant even momentary access, it just re-shows the
+            // shield with no way out (see FamilyControlsManager.
+            // activateLimit's doc comment for the full story). The next
+            // reminder mark will reshield it -- interruptOnOpen just
+            // forces that mark to fire roughly every minute instead of
+            // the user's chosen interval, it doesn't change this dismiss
+            // behavior at all anymore. .none (not .close) is what drops
+            // the user back into the app they were already using, rather
+            // than kicking them out to the home screen -- "Continue"
+            // should actually continue.
             let store = ManagedSettingsStore(named: GroupIdentity.storeName(for: group.id))
             var apps = store.shield.applications ?? []
             apps.remove(application)
