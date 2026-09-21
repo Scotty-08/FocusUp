@@ -53,8 +53,7 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
             // around windows the way budget tracking is), so it CAN fire
             // while inside a free-access window -- skip it there since a
             // window means no nagging at all, not even a dismissable one.
-            let now = Date()
-            guard !group.rule.windows.contains(where: { $0.contains(now) }) else { return }
+            guard !group.rule.windows.contains(where: { $0.contains(Date()) }) else { return }
 
             GroupRuntimeState.setShieldReason(.limitReminder, for: groupID)
             ManagedSettingsStore(named: GroupIdentity.storeName(for: groupID)).shield.applications = group.selection.applicationTokens
@@ -98,14 +97,16 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
             // already used up before it started, re-lock for the rest of
             // the day (the next budget segment is registered starting
             // exactly at this boundary and keeps tracking from here).
-            // Otherwise the group is back to its normal Shield behavior:
-            // the shield greets the user on their next open.
+            // Otherwise the group is back to normal: with
+            // check-in-on-open, the check-in is armed again for the
+            // user's next open; without it, the group stays accessible.
             if GroupRuntimeState.exceededToday(groupID) {
                 GroupRuntimeState.setShieldReason(.limitBudgetExceeded, for: groupID)
-            } else {
+                store.shield.applications = group.selection.applicationTokens
+            } else if group.rule.checkInOnOpen {
                 GroupRuntimeState.setShieldReason(.limitReminder, for: groupID)
+                store.shield.applications = group.selection.applicationTokens
             }
-            store.shield.applications = group.selection.applicationTokens
         } else if kind == "cooldown" {
             // The "shield again after N minutes" timer set when the user
             // last tapped through the shield (GroupCooldown.start, called

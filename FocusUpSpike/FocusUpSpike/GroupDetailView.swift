@@ -25,6 +25,7 @@ struct GroupDetailView: View {
     @State private var dailyBudgetMinutes: Int
     @State private var windows: [ScheduleWindow]
     @State private var reminderIntervalMinutes: Int
+    @State private var checkInOnOpen: Bool
     @State private var reshieldMinutes: Int
     @State private var isPickerPresented = false
     @State private var showDeleteConfirm = false
@@ -40,6 +41,7 @@ struct GroupDetailView: View {
         _dailyBudgetMinutes = State(initialValue: rule?.dailyBudgetMinutes ?? 30)
         _windows = State(initialValue: rule?.windows ?? [])
         _reminderIntervalMinutes = State(initialValue: rule?.reminderIntervalMinutes ?? 5)
+        _checkInOnOpen = State(initialValue: rule?.checkInOnOpen ?? false)
         _reshieldMinutes = State(initialValue: rule?.effectiveReshieldMinutes ?? GroupRule.minReshieldMinutes)
     }
 
@@ -152,7 +154,7 @@ struct GroupDetailView: View {
             HUDLabel(text: "Rule")
             HStack(spacing: 10) {
                 ruleKindButton(.block, title: "Block", subtitle: "Fully inaccessible until you complete a quest.")
-                ruleKindButton(.limit, title: "Shield", subtitle: "You can open it, but the shield greets you first.")
+                ruleKindButton(.limit, title: "Limit", subtitle: "Accessible, with reminders while you use it and an optional daily cap.")
             }
 
             if ruleKind == .limit {
@@ -197,7 +199,7 @@ struct GroupDetailView: View {
                 if hasDailyLimit {
                     numberField(label: "Daily budget", value: $dailyBudgetMinutes, suffix: "min/day", range: 5...480)
                 } else {
-                    Text("Apps stay accessible with no automatic lockout -- just the shield and reminders below.")
+                    Text("Apps stay accessible with no automatic lockout -- just the check-ins below.")
                         .font(.system(size: 10))
                         .foregroundStyle(PlayerTheme.textMuted)
                 }
@@ -209,32 +211,39 @@ struct GroupDetailView: View {
         }
     }
 
-    /// Shield-mode settings. The shield greets the user on open (they
-    /// can tap through), and the while-you-use-it reminder is always on
-    /// -- both are inherent to the mode, not toggles. iOS can't detect
-    /// the user leaving another app, so "greeted on open" is
-    /// approximated by a cooldown: after tapping through, the shield
-    /// comes back after `reshieldMinutes` (platform minimum 15).
+    /// Limit-mode check-ins. The while-you-use-it reminder is ALWAYS on
+    /// (no toggle); the check-in when the user opens the app is an
+    /// optional extra (rule.reshieldMinutes non-nil). iOS can't detect
+    /// the user leaving another app, so "on open" is approximated by a
+    /// cooldown: after tapping through, it re-arms after
+    /// `reshieldMinutes` (platform minimum 15).
     private var reminderStyleSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("WHEN YOU OPEN IT")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(PlayerTheme.textMuted)
-                numberField(label: "Shield again after", value: $reshieldMinutes, suffix: "min", range: GroupRule.minReshieldMinutes...480)
-                Text("The shield greets you when you open the app, and you can tap through to enter. After you do, it comes back once this much time has passed. iOS can't tell when you leave an app, so this timer stands in for \"every open\" -- 15 minutes is the shortest it allows.")
-                    .font(.system(size: 10))
-                    .foregroundStyle(PlayerTheme.textMuted)
-            }
-
             VStack(alignment: .leading, spacing: 6) {
                 Text("WHILE YOU USE IT")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(PlayerTheme.textMuted)
                 numberField(label: "Remind every", value: $reminderIntervalMinutes, suffix: "min of use", range: 1...60)
-                Text("Always on. A dismissable check-in while you're in the app -- never a lock, unless the daily budget above runs out.")
+                Text("Always on. A dismissable check-in while you're in the app -- never a lock, unless the daily limit above runs out.")
                     .font(.system(size: 10))
                     .foregroundStyle(PlayerTheme.textMuted)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Toggle(isOn: $checkInOnOpen.animation()) {
+                    Text("Also check in when I open it")
+                        .font(.system(size: 11))
+                        .foregroundStyle(PlayerTheme.textMuted)
+                }
+                .toggleStyle(.switch)
+                .tint(PlayerTheme.cyan)
+
+                if checkInOnOpen {
+                    numberField(label: "Check in again after", value: $reshieldMinutes, suffix: "min", range: GroupRule.minReshieldMinutes...480)
+                    Text("Optional. A check-in shows when you open the app -- tap through to use it. After you do, the next open checks in again once this much time has passed. iOS can't tell when you leave an app, so 15 minutes is the shortest gap.")
+                        .font(.system(size: 10))
+                        .foregroundStyle(PlayerTheme.textMuted)
+                }
             }
         }
     }
@@ -272,18 +281,18 @@ struct GroupDetailView: View {
     }
 
     /// Available regardless of whether a daily limit is set -- a window
-    /// always means fully free, no reminders, no budget tracking. With a
+    /// always means fully free, no check-ins, no budget tracking. With a
     /// daily limit, they're exceptions carved out of the budget; without
     /// one, they're just extra-protected quiet time on top of the
-    /// always-accessible-with-reminders default.
+    /// always-accessible-with-check-ins default.
     private var windowsEditor: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("FREE-ACCESS WINDOWS")
                 .font(.system(size: 10, weight: .bold))
                 .foregroundStyle(PlayerTheme.textMuted)
             Text(hasDailyLimit
-                 ? "No limits or reminders during these windows, regardless of the budget above. Outside them, the budget tracks separately in each remaining gap -- more windows means more separately-resetting budgets, not one shared total."
-                 : "No reminders during these windows. Outside them, the normal reminder check-ins apply.")
+                 ? "No limits or check-ins during these windows, regardless of the budget above. Outside them, the budget tracks separately in each remaining gap -- more windows means more separately-resetting budgets, not one shared total."
+                 : "No check-ins during these windows. Outside them, the normal check-in applies.")
                 .font(.system(size: 10))
                 .foregroundStyle(PlayerTheme.textMuted)
 
@@ -363,7 +372,7 @@ struct GroupDetailView: View {
             dailyBudgetMinutes: (isLimit && hasDailyLimit) ? max(dailyBudgetMinutes, 5) : nil,
             windows: isLimit ? windows : [],
             reminderIntervalMinutes: max(reminderIntervalMinutes, 1),
-            reshieldMinutes: isLimit ? max(reshieldMinutes, GroupRule.minReshieldMinutes) : nil
+            reshieldMinutes: (isLimit && checkInOnOpen) ? max(reshieldMinutes, GroupRule.minReshieldMinutes) : nil
         )
         if let existingGroup {
             manager.updateGroup(AppGroup(

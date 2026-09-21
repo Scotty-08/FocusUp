@@ -278,23 +278,25 @@ final class FamilyControlsManager: ObservableObject {
         lastError = nil
     }
 
-    /// Shield-mode (Limit-rule) groups greet the user with the shield
-    /// screen, but never lock them out just for existing -- the ONE real
-    /// lockout is a daily budget, if one is set, being used up (an
-    /// actual ManagedSettings shield the user can't dismiss). The group
-    /// starts SHIELDED so the first open is greeted; tapping through
-    /// releases the token (ShieldActionExtension) and starts a
-    /// "shield again after N minutes" cooldown (GroupCooldown), so a
-    /// later open is greeted again. The while-you-use-it reminder
-    /// cadence is always registered too, via the same cumulative-usage-
-    /// threshold mechanism. Every dismiss MUST release the token --
-    /// device-tested: leaving it shielded and returning
-    /// ShieldActionResponse.none does NOT grant even momentary access,
-    /// it just re-shows the shield with no way out. There is no signal
-    /// for "the user left the app" in this API, so "shielded on every
-    /// single open" isn't literally achievable; the cooldown is the
-    /// honest approximation.
-    /// Free-access windows suspend the reminder and budget tracking
+    /// Limit-rule groups never lock the user out just for existing --
+    /// the one real lockout is a daily budget, if one is set, being used
+    /// up (an actual ManagedSettings shield the user can't dismiss).
+    /// Two check-in mechanisms, both dismissable nudges:
+    ///  - The while-you-use-it reminder, ALWAYS registered, via
+    ///    cumulative-usage thresholds every reminderIntervalMinutes.
+    ///  - OPTIONALLY (rule.checkInOnOpen) a check-in on open: the group
+    ///    starts SHIELDED so the first open is checked in on; tapping
+    ///    through releases the token (ShieldActionExtension) and starts a
+    ///    cooldown (GroupCooldown) that re-arms it after
+    ///    reshieldMinutes. There's no "user left the app" signal in this
+    ///    API, so the cooldown is the honest approximation of "every
+    ///    open" (and if it expires mid-use, the check-in appears over
+    ///    the app).
+    /// Every dismiss MUST release the token -- device-tested: leaving it
+    /// shielded and returning ShieldActionResponse.none does NOT grant
+    /// even momentary access, it just re-shows the shield with no way
+    /// out.
+    /// Free-access windows suspend the check-in and budget tracking
     /// alike while they're active. See GroupIdentity (GroupStore.swift)
     /// for the DeviceActivityName scheme this depends on. Built only from
     /// primitives this codebase already used once for its single global
@@ -316,19 +318,19 @@ final class FamilyControlsManager: ObservableObject {
             .prefix(GroupRule.maxWindows)
             .sorted { ($0.startHour, $0.startMinute) < ($1.startHour, $1.startMinute) }
 
-        // Starts shielded (the "greeting") unless we're already inside a
-        // free-access window. Tapping through releases the token, see the
-        // doc comment above. Window start/end callbacks aren't guaranteed
+        // With check-in-on-open, start shielded (the first-open check-in)
+        // unless we're already inside a free-access window; otherwise
+        // start accessible. Window start/end callbacks aren't guaranteed
         // to fire retroactively for an interval already in progress, so
         // "now" is checked directly.
         let store = ManagedSettingsStore(named: GroupIdentity.storeName(for: group.id))
         GroupCooldown.stop(groupID: group.id)
-        if sortedWindows.contains(where: { $0.contains(Date()) }) {
-            store.shield.applications = nil
-            GroupRuntimeState.setShieldReason(nil, for: group.id)
-        } else {
+        if group.rule.checkInOnOpen, !sortedWindows.contains(where: { $0.contains(Date()) }) {
             store.shield.applications = tokens
             GroupRuntimeState.setShieldReason(.limitReminder, for: group.id)
+        } else {
+            store.shield.applications = nil
+            GroupRuntimeState.setShieldReason(nil, for: group.id)
         }
 
         // Window boundary activities register whenever there ARE windows,
@@ -373,17 +375,15 @@ final class FamilyControlsManager: ObservableObject {
         }
 
         // While-you-use-it reminder cadence -- always registered for
-        // every Limit group. A dismissable nudge, never a lock: the
-        // full open-quest list's most pressing quest if there is one,
-        // otherwise a "why am I checking this?" reflection prompt (copy
-        // is built in ShieldConfigurationExtension). Marks are capped
-        // at 30 (Apple's per-activity event ceiling isn't documented
-        // anywhere this codebase has found -- watch for reminders drying
-        // out after long continuous use during rehearsal).
-        let effectiveReminderMinutes = group.rule.reminderIntervalMinutes
-        let markCap = 30
+        // every Limit group. A dismissable nudge, never a lock: the most
+        // pressing quest if there is one, otherwise a "why am I checking
+        // this?" reflection prompt (copy is built in
+        // ShieldConfigurationExtension). Marks are capped at 30 (Apple's
+        // per-activity event ceiling isn't documented anywhere this
+        // codebase has found -- watch for reminders drying out after
+        // long continuous use during rehearsal).
         var events: [DeviceActivityEvent.Name: DeviceActivityEvent] = [:]
-        for mark in GroupActivityMarks.marks(intervalMinutes: effectiveReminderMinutes, maxCount: markCap) {
+        for mark in GroupActivityMarks.marks(intervalMinutes: group.rule.reminderIntervalMinutes, maxCount: 30) {
             events[GroupIdentity.eventName(groupID: group.id, kind: "reminder", mark: mark)] =
                 DeviceActivityEvent(applications: tokens, threshold: GroupActivityMarks.components(forMinutes: mark))
         }

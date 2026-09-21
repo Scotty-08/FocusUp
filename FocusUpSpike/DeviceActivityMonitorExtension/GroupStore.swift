@@ -85,13 +85,17 @@ struct GroupRule: Codable, Equatable {
     /// be shorter than this.
     static let minReshieldMinutes = 15
 
-    /// Shield-mode ("limit") only: how long after the user taps through
-    /// the shield before it greets them again. Optional so groups saved
-    /// before this existed still decode (nil = the 15-minute default).
-    /// iOS has no signal for "the user left the app," so a wall-clock
-    /// cooldown (see GroupCooldown) is the closest thing to "shield on
-    /// every open" that the platform allows.
+    /// Limit-mode OPTIONAL extra: nil = off; a value = "also check in
+    /// when I open the app," re-armed that many minutes after each
+    /// tap-through. (Optional so groups saved before this existed still
+    /// decode, as "off".) iOS has no signal for "the user left the
+    /// app," so a wall-clock cooldown (see GroupCooldown) is the closest
+    /// thing to "check in on every open" the platform allows. The
+    /// while-you-use-it reminder (reminderIntervalMinutes) is separate
+    /// and always on.
     var reshieldMinutes: Int? = nil
+
+    var checkInOnOpen: Bool { reshieldMinutes != nil }
 
     var effectiveReshieldMinutes: Int {
         max(reshieldMinutes ?? Self.minReshieldMinutes, Self.minReshieldMinutes)
@@ -134,7 +138,10 @@ struct AppGroup: Identifiable, Codable, Equatable {
                 let extra = sortedWindows.count - 1
                 parts.append(extra > 0 ? "No limits \(first.label), +\(extra) more" : "No limits \(first.label)")
             }
-            parts.append("Shield on open, again after \(rule.effectiveReshieldMinutes) min")
+            parts.append("Reminds every \(rule.reminderIntervalMinutes) min of use")
+            if rule.checkInOnOpen {
+                parts.append("Check-in on open, again after \(rule.effectiveReshieldMinutes) min")
+            }
             return parts.joined(separator: ". ") + "."
         }
     }
