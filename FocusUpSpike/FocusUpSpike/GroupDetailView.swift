@@ -22,6 +22,7 @@ struct GroupDetailView: View {
     @State private var dailyBudgetMinutes: Int
     @State private var windows: [ScheduleWindow]
     @State private var reminderIntervalMinutes: Int
+    @State private var interruptOnOpen: Bool
     @State private var taskID: UUID?
     @State private var isPickerPresented = false
     @State private var showDeleteConfirm = false
@@ -36,6 +37,7 @@ struct GroupDetailView: View {
         _dailyBudgetMinutes = State(initialValue: rule?.dailyBudgetMinutes ?? 30)
         _windows = State(initialValue: rule?.windows ?? [])
         _reminderIntervalMinutes = State(initialValue: rule?.reminderIntervalMinutes ?? 5)
+        _interruptOnOpen = State(initialValue: rule?.interruptOnOpen ?? false)
         _taskID = State(initialValue: existingGroup?.taskID)
     }
 
@@ -193,10 +195,26 @@ struct GroupDetailView: View {
 
             windowsEditor
 
-            numberField(label: "Remind every", value: $reminderIntervalMinutes, suffix: "min of use", range: 1...60)
-            Text("Apps stay accessible the whole time -- this just brings up a dismissable check-in, never a lock, unless the daily budget above runs out.")
-                .font(.system(size: 10))
-                .foregroundStyle(HunterTheme.textMuted)
+            VStack(alignment: .leading, spacing: 6) {
+                Toggle(isOn: $interruptOnOpen.animation()) {
+                    Text("Show check-in before every open")
+                        .font(.system(size: 11))
+                        .foregroundStyle(HunterTheme.textMuted)
+                }
+                .toggleStyle(.switch)
+                .tint(HunterTheme.cyan)
+
+                if interruptOnOpen {
+                    Text("The check-in shows every single time you try to open this group's apps (outside any free-access window above), not just periodically. You can always tap through it -- it's a pause, not a lock, unless the daily budget above runs out.")
+                        .font(.system(size: 10))
+                        .foregroundStyle(HunterTheme.textMuted)
+                } else {
+                    numberField(label: "Remind every", value: $reminderIntervalMinutes, suffix: "min of use", range: 1...60)
+                    Text("Apps stay accessible the whole time -- this just brings up a dismissable check-in, never a lock, unless the daily budget above runs out.")
+                        .font(.system(size: 10))
+                        .foregroundStyle(HunterTheme.textMuted)
+                }
+            }
         }
     }
 
@@ -358,7 +376,8 @@ struct GroupDetailView: View {
             kind: ruleKind,
             dailyBudgetMinutes: (isLimit && hasDailyLimit) ? dailyBudgetMinutes : nil,
             windows: isLimit ? windows : [],
-            reminderIntervalMinutes: reminderIntervalMinutes
+            reminderIntervalMinutes: reminderIntervalMinutes,
+            interruptOnOpen: isLimit && interruptOnOpen
         )
         if let existingGroup {
             manager.updateGroup(AppGroup(

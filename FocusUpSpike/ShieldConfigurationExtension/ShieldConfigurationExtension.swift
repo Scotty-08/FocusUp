@@ -87,10 +87,13 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
         return Array(tasks.prefix(maxShown))
     }
 
-    /// A dismissable nudge, not a lockout -- copy and button labels make
-    /// clear tapping through just continues, it doesn't complete
-    /// anything. See ShieldActionExtension.handleLimit: both buttons
-    /// behave identically here.
+    /// A dismissable nudge, not a lockout. When any quest is open, the
+    /// primary button becomes "Open Quests" and routes to FocusUp's
+    /// Quests tab instead of just dismissing (see
+    /// ShieldActionExtension.handleLimit's matching primaryButtonPressed
+    /// + open-quests case) -- "Dismiss" (secondary) always stays a plain
+    /// dismiss either way. With no quests open at all, both buttons just
+    /// dismiss, labeled "Continue"/"Dismiss" as before.
     ///
     /// ALWAYS shows the full quest list when any quests are open, not
     /// just a single task name -- the point of the interruption is to
@@ -99,24 +102,30 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
     private func reminderShield(group: AppGroup) -> ShieldConfiguration {
         let allOpen = TaskStore.loadTasks().filter { !$0.isCompleted }
         let headline: String
+        let primaryLabel: String
+        let actionHint: String
         if allOpen.isEmpty {
             // No quests at all to remind about -- ask the reflective
             // question instead of just saying nothing to check on. The
             // nudge should still make you pause even with an empty list.
             headline = "Why am I checking this?"
+            primaryLabel = "Continue"
+            actionHint = "Tap Continue to keep using \(group.name)."
         } else {
             let shown = questList(for: group)
             let bulletList = shown.map { "\u{2022} \($0.title)" }.joined(separator: "\n")
             let overflow = allOpen.count - shown.count
             headline = "Your quests:\n\(bulletList)" + (overflow > 0 ? "\n+\(overflow) more" : "")
+            primaryLabel = "Open Quests"
+            actionHint = "Open Quests to jump to your list, or Dismiss to keep using \(group.name)."
         }
         return ShieldConfiguration(
             backgroundBlurStyle: .systemMaterialDark,
             backgroundColor: bg,
             icon: FocusUpEmblem.image,
             title: .init(text: "FocusUp", color: ink),
-            subtitle: .init(text: "\(headline)\nTap Continue to keep using \(group.name).", color: inkDim),
-            primaryButtonLabel: .init(text: "Continue", color: bg),
+            subtitle: .init(text: "\(headline)\n\(actionHint)", color: inkDim),
+            primaryButtonLabel: .init(text: primaryLabel, color: bg),
             primaryButtonBackgroundColor: cyan,
             secondaryButtonLabel: .init(text: "Dismiss", color: inkDim)
         )

@@ -79,6 +79,21 @@ struct GroupRule: Codable, Equatable {
     var dailyBudgetMinutes: Int?
     var windows: [ScheduleWindow] = []
     var reminderIntervalMinutes: Int = 5
+
+    /// Opt-in, off by default: when true, the interruption screen shows
+    /// on every single attempt to open this group's apps (outside any
+    /// free-access window), not just periodically every
+    /// reminderIntervalMinutes of use. Implemented by simply never
+    /// releasing the token from the shield on dismiss (see
+    /// FamilyControlsManager.activateLimit and
+    /// ShieldActionExtension.handleLimit) -- a ManagedSettings shield
+    /// naturally reappears on every foreground/open attempt as long as
+    /// the token stays in `shield.applications`, so this needs no
+    /// separate DeviceActivity threshold at all, unlike the periodic
+    /// reminder. Mutually exclusive with the periodic reminder cadence
+    /// in practice (registering both would be redundant), so the
+    /// periodic reminder activity is skipped entirely when this is on.
+    var interruptOnOpen: Bool = false
 }
 
 /// A named set of apps plus the one rule that governs all of them
@@ -116,6 +131,9 @@ struct AppGroup: Identifiable, Codable, Equatable {
             if let first = sortedWindows.first {
                 let extra = sortedWindows.count - 1
                 parts.append(extra > 0 ? "No limits \(first.label), +\(extra) more" : "No limits \(first.label)")
+            }
+            if rule.interruptOnOpen {
+                parts.append("Shown every time you open it")
             }
             return parts.joined(separator: ". ") + "."
         }
