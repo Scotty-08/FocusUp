@@ -36,7 +36,13 @@ final class FamilyControlsManager: ObservableObject {
     @Published var justCompletedStreak: Int?
     @Published var justClearedQuestTitle: String?
     @Published var tasks: [FocusTask] = []
+    @Published var activeTaskID: UUID?
     private var lastKnownCompletedCount: Int = 0
+
+    var activeTask: FocusTask? {
+        guard let id = activeTaskID else { return nil }
+        return tasks.first { $0.id == id }
+    }
 
     private init() {
         authorizationStatus = center.authorizationStatus
@@ -90,9 +96,15 @@ final class FamilyControlsManager: ObservableObject {
 
     /// Re-reads tasks from the shared App Group store -- call whenever
     /// the app becomes active, in case anything changed while it wasn't
-    /// in the foreground.
+    /// in the foreground. Covers first launch (nothing picked yet) and
+    /// the case where every task got deleted/finished and new ones were
+    /// added elsewhere -- always leave SOME task active if one exists.
     func refreshTasks() {
         tasks = TaskStore.loadTasks()
+        activeTaskID = TaskStore.activeTaskID
+        if activeTaskID == nil {
+            activeTaskID = TaskStore.advanceActiveTask(using: tasks)
+        }
     }
 
     func addTask(title: String, dueDate: Date? = nil, priority: TaskPriority = .medium) {
@@ -102,12 +114,22 @@ final class FamilyControlsManager: ObservableObject {
         updated.append(FocusTask(title: trimmed, dueDate: dueDate, priority: priority))
         tasks = updated
         TaskStore.saveTasks(updated)
+        // Only auto-pick when nothing is active yet -- an already-active
+        // task (auto-picked or manually overridden) stays put until it's
+        // completed, even if this new task outranks it.
+        if activeTaskID == nil {
+            activeTaskID = TaskStore.advanceActiveTask(using: updated)
+        }
     }
 
     /// Edits an existing quest's title/deadline/priority in place. Does
     /// NOT touch isCompleted -- that's toggleTaskCompletion's job, kept
     /// separate so editing a quest's details never accidentally
-    /// completes or reopens it.
+    /// completes or reopens it. Deliberately does NOT re-run the
+    /// active-quest auto-pick either, even if the edit changes this
+    /// quest's priority/deadline -- same "stays active until cleared"
+    /// rule addTask/toggleTaskCompletion follow, an edit isn't a
+    /// completion or a manual override.
     func updateTask(_ task: FocusTask) {
         guard let idx = tasks.firstIndex(where: { $0.id == task.id }) else { return }
         tasks[idx] = task
@@ -124,6 +146,9 @@ final class FamilyControlsManager: ObservableObject {
         let updated = tasks.filter { !idSet.contains($0.id) }
         tasks = updated
         TaskStore.saveTasks(updated)
+        if let activeTaskID, idSet.contains(activeTaskID) {
+            self.activeTaskID = TaskStore.advanceActiveTask(using: updated)
+        }
     }
 
     /// Releases every Block-rule group, not just ones "about" this task
@@ -132,6 +157,8 @@ final class FamilyControlsManager: ObservableObject {
     /// GroupStore.unshieldAllBlockGroups's doc comment for why this is
     /// an event, not a "quest list is empty" state check, and why that
     /// distinction is what keeps blocking meaningful with zero quests.
+    /// Separately, if the completed quest happened to be the active one,
+    /// auto-advances to whichever quest autoPickNextTask picks next.
     func toggleTaskCompletion(_ task: FocusTask) {
         guard let idx = tasks.firstIndex(where: { $0.id == task.id }) else { return }
         tasks[idx].isCompleted.toggle()
@@ -142,6 +169,17 @@ final class FamilyControlsManager: ObservableObject {
             GroupStore.unshieldAllBlockGroups()
             refreshGroups()
         }
+        if tasks[idx].isCompleted && activeTaskID == task.id {
+            activeTaskID = TaskStore.advanceActiveTask(using: tasks)
+        }
+    }
+
+    /// Manual override for the Quest Log's own active-quest pick; always
+    /// wins over the auto-pick immediately and stays active until it's
+    /// completed -- after that, picking goes back to auto-pick order.
+    func setActiveTask(_ id: UUID?) {
+        activeTaskID = id
+        TaskStore.activeTaskID = id
     }
 
     // MARK: - Groups
