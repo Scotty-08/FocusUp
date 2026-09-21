@@ -27,6 +27,10 @@ struct ContentView: View {
         // default, so this is a no-op on every other launch/foreground.
         if QuestRoute.consume() {
             selectedTab = 1
+            // Specifically the shield-return moment, not every ordinary
+            // launch/foreground -- see presentPressingQuestCheckIn's doc
+            // comment.
+            manager.presentPressingQuestCheckIn()
         }
     }
 
@@ -56,13 +60,7 @@ struct ContentView: View {
             }
             .tag(2)
         }
-        .onAppear {
-            refreshOnActive()
-            // Cold-launch only -- deliberately NOT called from the
-            // scenePhase-active branch below, so quickly switching away
-            // from and back to FocusUp doesn't re-ask every time.
-            manager.checkInOnLaunch()
-        }
+        .onAppear { refreshOnActive() }
         .tint(HunterTheme.cyan)
         .preferredColorScheme(.dark)
         .onChange(of: scenePhase) { _, newPhase in

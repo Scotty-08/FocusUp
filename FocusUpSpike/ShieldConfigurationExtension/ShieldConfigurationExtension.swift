@@ -26,26 +26,27 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
         return streak > 0 ? "\(streakDots(streak))  \(streak)-quest streak" : "Stay locked in."
     }
 
-    /// Every open (incomplete) quest, across the WHOLE list -- groups no
-    /// longer link to one specific task (see AppGroup), so both
-    /// blockShield and reminderShield show the same global list. Capped
-    /// at `maxShown` with a "+N more" tail so a long list doesn't
-    /// overflow the system-controlled shield layout (SHIELD_DESIGN.md:
-    /// the system chooses shield typography/layout, not us) -- exact
-    /// wrapping behavior for a multi-line bulleted subtitle is
-    /// unverified on device, same caveat as every other shield-copy
-    /// choice here.
-    private func openQuests(maxShown: Int = 5) -> [FocusTask] {
-        Array(TaskStore.loadTasks().filter { !$0.isCompleted }.prefix(maxShown))
+    /// The single most pressing open quest (TaskStore.mostPressingTask:
+    /// highest priority, then earliest deadline) -- groups no longer
+    /// link to one specific task (see AppGroup), so both blockShield and
+    /// reminderShield name this same pick rather than a per-group one.
+    /// Shown as one line rather than a list: the system controls the
+    /// actual shield layout (SHIELD_DESIGN.md), and naming exactly the
+    /// quest FocusUp itself will ask about next (see
+    /// FamilyControlsManager.presentPressingQuestCheckIn) keeps the
+    /// shield and the in-app check-in consistent about which quest is
+    /// "the" one right now.
+    private var pressingQuest: FocusTask? {
+        TaskStore.mostPressingTask(from: TaskStore.loadTasks())
     }
 
     /// Every shield this app shows is one of exactly three shapes now:
-    /// a Block-rule lockout gated on the whole quest list, a Limit-rule
-    /// reminder nudge (dismissable), or a Limit-rule budget lockout (not
-    /// dismissable -- see ShieldActionExtension). `token` resolves back
-    /// to the owning AppGroup; web-domain shields and orphaned tokens
-    /// fall through to a neutral default since groups only ever select
-    /// app tokens.
+    /// a Block-rule lockout gated on the most pressing quest, a
+    /// Limit-rule reminder nudge (dismissable), or a Limit-rule budget
+    /// lockout (not dismissable -- see ShieldActionExtension). `token`
+    /// resolves back to the owning AppGroup; web-domain shields and
+    /// orphaned tokens fall through to a neutral default since groups
+    /// only ever select app tokens.
     private func brandedShield(for token: ApplicationToken?) -> ShieldConfiguration {
         guard let token, let group = GroupStore.group(containing: token) else {
             return defaultShield()
@@ -67,21 +68,17 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
     /// A real lockout -- unlike the Limit-rule shields below, neither
     /// button here releases anything (see ShieldActionExtension.
     /// handleBlock): "Open Quests" always just routes to the Quests tab,
-    /// whether or not the list happens to be empty right now, since
-    /// that's also where you'd go add one. Blocking is deliberately NOT
-    /// gated on the list being non-empty -- it stays blocked either way,
-    /// only releasing when a quest is actually completed (see
+    /// whether or not there's a quest to name right now, since that's
+    /// also where you'd go add one. Blocking is deliberately NOT gated
+    /// on a quest existing -- it stays blocked either way, only
+    /// releasing when a quest is actually completed (see
     /// GroupStore.unshieldAllBlockGroups).
     private func blockShield() -> ShieldConfiguration {
-        let allOpen = TaskStore.loadTasks().filter { !$0.isCompleted }
         let headline: String
-        if allOpen.isEmpty {
-            headline = "No quests yet -- add one and complete it to unlock."
+        if let task = pressingQuest {
+            headline = "Complete this quest to unlock:\n\(task.title)"
         } else {
-            let shown = openQuests()
-            let bulletList = shown.map { "\u{2022} \($0.title)" }.joined(separator: "\n")
-            let overflow = allOpen.count - shown.count
-            headline = "Complete a quest to unlock:\n\(bulletList)" + (overflow > 0 ? "\n+\(overflow) more" : "")
+            headline = "No quests yet -- add one and complete it to unlock."
         }
         return ShieldConfiguration(
             backgroundBlurStyle: .systemMaterialDark,
@@ -95,37 +92,34 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
         )
     }
 
-    /// A dismissable nudge, not a lockout. When any quest is open, the
-    /// primary button becomes "Open Quests" and routes to FocusUp's
+    /// A dismissable nudge, not a lockout. When there's an open quest,
+    /// the primary button becomes "Open Quests" and routes to FocusUp's
     /// Quests tab instead of just dismissing (see
     /// ShieldActionExtension.handleLimit's matching primaryButtonPressed
     /// + open-quests case) -- "Dismiss" (secondary) always stays a plain
     /// dismiss either way. With no quests open at all, both buttons just
     /// dismiss, labeled "Continue"/"Dismiss" as before.
     ///
-    /// ALWAYS shows the full quest list when any quests are open, not
-    /// just a single task name -- the point of the interruption is to
-    /// put the whole list back in front of the user, not one specific
-    /// task (there's no per-group link to pick one from anymore).
+    /// Names the single most pressing quest (see `pressingQuest`), not a
+    /// list -- the in-app check-in this leads to (see
+    /// FamilyControlsManager.presentPressingQuestCheckIn) asks about
+    /// that exact same quest, so the shield and the check-in always
+    /// agree on which one is "the" quest right now.
     private func reminderShield(group: AppGroup) -> ShieldConfiguration {
-        let allOpen = TaskStore.loadTasks().filter { !$0.isCompleted }
         let headline: String
         let primaryLabel: String
         let actionHint: String
-        if allOpen.isEmpty {
+        if let task = pressingQuest {
+            headline = "Still on \u{201C}\(task.title)\u{201D}?"
+            primaryLabel = "Open Quests"
+            actionHint = "Open Quests to check in, or Dismiss to keep using \(group.name)."
+        } else {
             // No quests at all to remind about -- ask the reflective
             // question instead of just saying nothing to check on. The
-            // nudge should still make you pause even with an empty list.
+            // nudge should still make you pause even with nothing open.
             headline = "Why am I checking this?"
             primaryLabel = "Continue"
             actionHint = "Tap Continue to keep using \(group.name)."
-        } else {
-            let shown = openQuests()
-            let bulletList = shown.map { "\u{2022} \($0.title)" }.joined(separator: "\n")
-            let overflow = allOpen.count - shown.count
-            headline = "Your quests:\n\(bulletList)" + (overflow > 0 ? "\n+\(overflow) more" : "")
-            primaryLabel = "Open Quests"
-            actionHint = "Open Quests to jump to your list, or Dismiss to keep using \(group.name)."
         }
         return ShieldConfiguration(
             backgroundBlurStyle: .systemMaterialDark,
