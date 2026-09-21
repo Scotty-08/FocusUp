@@ -366,6 +366,8 @@ struct FriendsView: View {
 /// e.g. the user signed in offline, or with the preview-only email path,
 /// or their session was revoked. Connects with Apple or email/password.
 private struct ConnectCard: View {
+    @StateObject private var auth = AuthManager.shared
+    @StateObject private var backend = BackendClient.shared
     @State private var email = ""
     @State private var password = ""
     @State private var errorText: String?
@@ -374,8 +376,10 @@ private struct ConnectCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HUDLabel(text: "Connect your account", size: 10)
-            Text("Sign in to your FocusUp account to add friends and appear on leaderboards. Your quests and app blocking keep working either way.")
+            HUDLabel(text: isAppleUser ? "Link your online account" : "Connect your account", size: 10)
+            Text(isAppleUser
+                 ? "You're signed in on this device, but your online FocusUp account isn't linked yet. Tap once to link it with Apple -- no password needed. Your quests and app blocking work either way."
+                 : "Sign in to your FocusUp account to add friends and appear on leaderboards. Your quests and app blocking keep working either way.")
                 .font(.system(size: 12))
                 .foregroundStyle(PlayerTheme.textMuted)
 
@@ -398,16 +402,20 @@ private struct ConnectCard: View {
             .signInWithAppleButtonStyle(.white)
             .frame(height: 46)
 
-            field("Email", text: $email, secure: false)
-            field("Password", text: $password, secure: true)
+            // Someone who signed in with Apple never has an email/password
+            // here, so don't ask for one.
+            if !isAppleUser {
+                field("Email", text: $email, secure: false)
+                field("Password", text: $password, secure: true)
 
-            HStack(spacing: 10) {
-                action("SIGN IN") { try await BackendClient.shared.signIn(email: trimmedEmail, password: password) }
-                action("CREATE ACCOUNT") { try await BackendClient.shared.signUp(email: trimmedEmail, password: password) }
+                HStack(spacing: 10) {
+                    action("SIGN IN") { try await BackendClient.shared.signIn(email: trimmedEmail, password: password) }
+                    action("CREATE ACCOUNT") { try await BackendClient.shared.signUp(email: trimmedEmail, password: password) }
+                }
             }
 
-            if let errorText {
-                Text(errorText)
+            if let message = errorText ?? backend.lastConnectError {
+                Text(message)
                     .font(.system(size: 11))
                     .foregroundStyle(PlayerTheme.danger)
             }
@@ -415,6 +423,8 @@ private struct ConnectCard: View {
         .padding(14)
         .hudPanel()
     }
+
+    private var isAppleUser: Bool { auth.signInMethod == "apple" }
 
     private var trimmedEmail: String { email.trimmingCharacters(in: .whitespacesAndNewlines) }
 
