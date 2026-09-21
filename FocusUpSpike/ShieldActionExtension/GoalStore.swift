@@ -19,59 +19,6 @@ enum FocusUpShared {
     static let storeName = ManagedSettingsStore.Name("com.scottgray.FocusUpSpike.mainStore")
 }
 
-/// Maps each shielded app's opaque ApplicationToken to the goal text the
-/// user typed for it, stored in the shared App Group container so the
-/// Shield Configuration extension (a separate process) can read it when
-/// it draws the block overlay.
-enum GoalStore {
-    private static let key = "focusUp.tokenGoalMap"
-
-    private static var defaults: UserDefaults? {
-        UserDefaults(suiteName: FocusUpShared.appGroupID)
-    }
-
-    static func loadAll() -> [ApplicationToken: String] {
-        guard let data = defaults?.data(forKey: key),
-              let map = try? JSONDecoder().decode([ApplicationToken: String].self, from: data) else {
-            return [:]
-        }
-        return map
-    }
-
-    private static func save(_ map: [ApplicationToken: String]) {
-        guard let data = try? JSONEncoder().encode(map) else { return }
-        defaults?.set(data, forKey: key)
-    }
-
-    static func goal(for token: ApplicationToken) -> String? {
-        loadAll()[token]
-    }
-
-    static func setGoal(_ text: String, for token: ApplicationToken) {
-        var map = loadAll()
-        map[token] = text
-        save(map)
-    }
-
-    /// Replace the whole map with exactly this selection's goal text --
-    /// called on every Apply so stale entries for deselected apps don't
-    /// linger.
-    static func setGoal(_ text: String, for tokens: Set<ApplicationToken>) {
-        var map = loadAll()
-        map = map.filter { tokens.contains($0.key) }
-        for token in tokens {
-            map[token] = text
-        }
-        save(map)
-    }
-
-    static func removeGoal(for token: ApplicationToken) {
-        var map = loadAll()
-        map.removeValue(forKey: token)
-        save(map)
-    }
-}
-
 /// Counters for the shield's two exit paths, written from the
 /// ShieldActionExtension process and read back in the main app.
 ///
@@ -85,7 +32,6 @@ enum StatsStore {
     private static let completedKey = "focusUp.completedCount"
     private static let streakKey = "focusUp.currentStreak"
     private static let lastClearedQuestTitleKey = "focusUp.lastClearedQuestTitle"
-    private static let checkInCountKey = "focusUp.checkInCount"
 
     private static var defaults: UserDefaults? {
         UserDefaults(suiteName: FocusUpShared.appGroupID)
@@ -95,19 +41,11 @@ enum StatsStore {
     static var completedCount: Int { defaults?.integer(forKey: completedKey) ?? 0 }
     static var currentStreak: Int { defaults?.integer(forKey: streakKey) ?? 0 }
 
-    /// The title of whichever quest was active at the moment "Clear Quest
-    /// — Unlock" was tapped, captured by ShieldActionExtension BEFORE it
-    /// advances the active task to the next one. Lets the in-app
+    /// The title of whichever quest was completed, captured before the
+    /// completing code advances to whatever's next. Lets the in-app
     /// celebration screen say what was actually just cleared, instead of
     /// whatever quest happens to be active by the time the user returns.
     static var lastClearedQuestTitle: String? { defaults?.string(forKey: lastClearedQuestTitleKey) }
-
-    /// Bumped once each time DeviceActivityMonitorExtension's periodic
-    /// check-in threshold fires and re-applies the shield mid-session.
-    /// The main app compares this against its own last-seen count (see
-    /// FamilyControlsManager.refreshStats) to know a check-in happened
-    /// while it was away, and shows the System Check-In screen for it.
-    static var checkInCount: Int { defaults?.integer(forKey: checkInCountKey) ?? 0 }
 
     static func recordIgnore() {
         defaults?.set(ignoreCount + 1, forKey: ignoreKey)
@@ -120,13 +58,6 @@ enum StatsStore {
         if let questTitle {
             defaults?.set(questTitle, forKey: lastClearedQuestTitleKey)
         }
-    }
-
-    /// Called from DeviceActivityMonitorExtension only -- a routine
-    /// re-seal, not a completion or an ignore, so it deliberately does
-    /// not touch completedCount or currentStreak.
-    static func recordCheckIn() {
-        defaults?.set(checkInCount + 1, forKey: checkInCountKey)
     }
 }
 
@@ -154,43 +85,16 @@ enum SelectionStore {
     }
 }
 
-/// LEGACY / migration-only. Drove the app's one global periodic
-/// check-in before AppGroup existed -- Limit-rule groups now register
-/// their own reminder/budget DeviceActivityNames directly (see
-/// GroupIdentity and GroupActivityMarks in GroupStore.swift, which
-/// generalizes the cumulative-threshold trick this enum pioneered).
-/// Kept only so FamilyControlsManager's one-time migration can stop
-/// monitoring `name` on upgrade; nothing should start monitoring it
-/// again.
+/// LEGACY / migration-only. Named the app's one global periodic check-in
+/// before AppGroup existed -- Limit-rule groups now register their own
+/// reminder/budget DeviceActivityNames directly (see GroupIdentity and
+/// GroupActivityMarks in GroupStore.swift, which generalizes the
+/// cumulative-threshold trick this enum's now-removed marks()/
+/// eventName()/components() helpers pioneered). Kept only so
+/// FamilyControlsManager's one-time migration can stop monitoring `name`
+/// on upgrade; nothing should start monitoring it again.
 enum FocusUpActivity {
     static let name = DeviceActivityName("focusUp.checkIn")
-
-    /// Cumulative-usage thresholds (in seconds) at which we re-show the
-    /// block screen. Capped at `maxCount` marks regardless of interval so
-    /// a short demo interval (e.g. 30s) doesn't try to register hundreds
-    /// of events -- Apple has practical limits on event count per
-    /// activity, and this keeps registration well under them.
-    static func marks(intervalSeconds: Int, maxCount: Int = 30) -> [Int] {
-        guard intervalSeconds > 0 else { return [] }
-        return (1...maxCount).map { $0 * intervalSeconds }
-    }
-
-    static func eventName(forMark seconds: Int) -> DeviceActivityEvent.Name {
-        DeviceActivityEvent.Name("focusUp.checkIn.\(seconds)")
-    }
-
-    /// Converts a raw second count into normalized hour/minute/second
-    /// DateComponents for DeviceActivityEvent's threshold parameter.
-    static func components(forSeconds totalSeconds: Int) -> DateComponents {
-        var c = DateComponents()
-        let hours = totalSeconds / 3600
-        let minutes = (totalSeconds % 3600) / 60
-        let seconds = totalSeconds % 60
-        if hours > 0 { c.hour = hours }
-        if minutes > 0 { c.minute = minutes }
-        if seconds > 0 { c.second = seconds }
-        return c
-    }
 }
 
 /// A shield tap requests presentation only. Never carries app identities.

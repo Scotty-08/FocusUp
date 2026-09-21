@@ -35,11 +35,9 @@ final class FamilyControlsManager: ObservableObject {
     @Published var currentStreak: Int = 0
     @Published var justCompletedStreak: Int?
     @Published var justClearedQuestTitle: String?
-    @Published var justCheckedIn = false
     @Published var tasks: [FocusTask] = []
     @Published var activeTaskID: UUID?
     private var lastKnownCompletedCount: Int = 0
-    private var lastKnownCheckInCount: Int = 0
 
     var activeTask: FocusTask? {
         guard let id = activeTaskID else { return nil }
@@ -49,7 +47,6 @@ final class FamilyControlsManager: ObservableObject {
     private init() {
         authorizationStatus = center.authorizationStatus
         lastKnownCompletedCount = StatsStore.completedCount
-        lastKnownCheckInCount = StatsStore.checkInCount
         refreshTasks()
         runLegacyMigrationIfNeeded()
         refreshGroups()
@@ -87,27 +84,12 @@ final class FamilyControlsManager: ObservableObject {
         completedCount = newCompleted
         ignoreCount = StatsStore.ignoreCount
         currentStreak = newStreak
-
-        // Same "compare against last-seen count" pattern as the streak
-        // check above, but deliberately never fires alongside it --
-        // ContentView only shows the check-in screen when a quest
-        // wasn't ALSO just cleared, so the two custom screens never
-        // stack on top of each other.
-        let newCheckInCount = StatsStore.checkInCount
-        if newCheckInCount > lastKnownCheckInCount && justCompletedStreak == nil {
-            justCheckedIn = true
-        }
-        lastKnownCheckInCount = newCheckInCount
         updateFocusActivity()
     }
 
     func dismissStreakAnimation() {
         justCompletedStreak = nil
         justClearedQuestTitle = nil
-    }
-
-    func dismissCheckIn() {
-        justCheckedIn = false
     }
 
     // MARK: - Tasks
@@ -264,13 +246,8 @@ final class FamilyControlsManager: ObservableObject {
         GroupRuntimeState.clear(group.id)
     }
 
-    private func goalText(for group: AppGroup) -> String {
-        "Finish your quests in FocusUp to unlock this app."
-    }
-
     private func activateBlock(_ group: AppGroup) {
         GroupRuntimeState.setShieldReason(.block, for: group.id)
-        GoalStore.setGoal(goalText(for: group), for: group.selection.applicationTokens)
         ManagedSettingsStore(named: GroupIdentity.storeName(for: group.id)).shield.applications = group.selection.applicationTokens
         lastError = nil
     }
@@ -279,18 +256,24 @@ final class FamilyControlsManager: ObservableObject {
     /// real lockout is a daily budget, if one is set, being used up
     /// (that's an actual ManagedSettings shield the user can't dismiss,
     /// per "when you reach your daily limit it should block the app").
-    /// Otherwise "limiting" means a dismissable interruption shield, in
-    /// one of two modes the user picks per group:
-    ///   - Periodic (default): nags every reminderIntervalMinutes of use.
-    ///   - interruptOnOpen: shown on every single open attempt instead,
-    ///     by simply never releasing the token from the shield on
-    ///     dismiss -- a ManagedSettings shield naturally reappears each
-    ///     time a shielded app is (re)opened, so this needs no
-    ///     DeviceActivity threshold at all.
-    /// Free-access windows suspend everything above (reminders, budget
-    /// tracking, and interruptOnOpen's persistent shield alike) while
-    /// they're active. See GroupIdentity (GroupStore.swift) for the
-    /// DeviceActivityName scheme this depends on. Built only from
+    /// Otherwise "limiting" means a dismissable interruption shield, via
+    /// the SAME cumulative-usage-threshold mechanism either way --
+    /// interruptOnOpen just forces the shortest interval (1 minute)
+    /// instead of the user's chosen reminderIntervalMinutes. Both modes
+    /// MUST release the token on dismiss (see ShieldActionExtension) --
+    /// device-tested: leaving it shielded and returning
+    /// ShieldActionResponse.none does NOT grant even momentary access,
+    /// it just re-shows the shield with no way out. An earlier version
+    /// of interruptOnOpen tried exactly that (permanently shielded,
+    /// never released) on the theory that .none would let each attempt
+    /// through -- confirmed wrong on-device, app became completely
+    /// unreachable. There is no "let this one attempt through" signal in
+    /// this API, so "shown on every single open" isn't literally
+    /// achievable; the shortest-interval reminder is the honest
+    /// approximation.
+    /// Free-access windows suspend the reminder and budget tracking
+    /// alike while they're active. See GroupIdentity (GroupStore.swift)
+    /// for the DeviceActivityName scheme this depends on. Built only from
     /// primitives this codebase already used once for its single global
     /// check-in (cumulative DeviceActivityEvent thresholds,
     /// intervalStart/intervalEnd boundaries) -- registering more than a
@@ -303,7 +286,6 @@ final class FamilyControlsManager: ObservableObject {
     private func activateLimit(_ group: AppGroup) {
         let tokens = group.selection.applicationTokens
         GroupRuntimeState.setExceededToday(false, for: group.id)
-        GoalStore.setGoal(goalText(for: group), for: tokens)
 
         let dayStart = DateComponents(hour: 0, minute: 0, second: 0)
         let dayEnd = DateComponents(hour: 23, minute: 59, second: 59)
@@ -311,23 +293,18 @@ final class FamilyControlsManager: ObservableObject {
             .prefix(GroupRule.maxWindows)
             .sorted { ($0.startHour, $0.startMinute) < ($1.startHour, $1.startMinute) }
 
-        // Initial state: interruptOnOpen groups start already shielded --
-        // friction from the very first open, not waiting on a usage
-        // threshold -- UNLESS "now" already falls inside one of its
-        // windows, which always wins. Never released from here on except
-        // by a window opening (see intervalDidStart) or the group being
-        // edited/deleted; see ShieldActionExtension.handleLimit for why
-        // dismissing it doesn't remove the token. Everyone else (the
-        // default periodic-reminder mode) always starts accessible.
+        // Always starts accessible -- device-tested (see git history):
+        // leaving a token permanently shielded and relying on
+        // ShieldActionResponse.none to grant "just this one attempt"
+        // through does NOT work. .none with the token still present just
+        // re-shows the shield -- there is no "let this one attempt
+        // through" signal in this API, only "release the token" or
+        // "don't." interruptOnOpen used to start pre-shielded on that
+        // false assumption; see the reminder-registration comment below
+        // for how it's actually built now.
         let store = ManagedSettingsStore(named: GroupIdentity.storeName(for: group.id))
-        let now = Date()
-        if group.rule.interruptOnOpen && !sortedWindows.contains(where: { $0.contains(now) }) {
-            store.shield.applications = tokens
-            GroupRuntimeState.setShieldReason(.limitReminder, for: group.id)
-        } else {
-            store.shield.applications = nil
-            GroupRuntimeState.setShieldReason(nil, for: group.id)
-        }
+        store.shield.applications = nil
+        GroupRuntimeState.setShieldReason(nil, for: group.id)
 
         // Window boundary activities register whenever there ARE windows,
         // independent of whether a daily budget is set -- a window always
@@ -370,27 +347,44 @@ final class FamilyControlsManager: ObservableObject {
             )
         }
 
-        // Periodic reminder cadence -- skipped entirely when
-        // interruptOnOpen is on, since the shield is already up
-        // continuously between window boundaries in that mode; a
-        // threshold on top would be redundant and just adds more
-        // DeviceActivity registrations for no behavioral difference.
-        // Otherwise unconditional for every Limit group. Copy is built in
-        // ShieldConfigurationExtension: the full open-quest list if
-        // there is one, otherwise a "why am I checking this?" reflection
-        // prompt -- either way it's a dismissable nudge, never a lock.
-        if !group.rule.interruptOnOpen {
-            var events: [DeviceActivityEvent.Name: DeviceActivityEvent] = [:]
-            for mark in GroupActivityMarks.marks(intervalMinutes: group.rule.reminderIntervalMinutes) {
-                events[GroupIdentity.eventName(groupID: group.id, kind: "reminder", mark: mark)] =
-                    DeviceActivityEvent(applications: tokens, threshold: GroupActivityMarks.components(forMinutes: mark))
-            }
-            registerActivity(
-                GroupIdentity.reminderActivityName(for: group.id),
-                schedule: DeviceActivitySchedule(intervalStart: dayStart, intervalEnd: dayEnd, repeats: true),
-                events: events
-            )
+        // Periodic reminder cadence -- unconditional for every Limit
+        // group now (see this function's doc comment for why
+        // interruptOnOpen no longer skips it): interruptOnOpen just
+        // forces the shortest possible interval (1 minute -- the
+        // numberField's own floor) instead of the user-chosen one, since
+        // this proven cumulative-threshold mechanism is the only thing
+        // that actually re-shields correctly on release. It's an honest
+        // "checks in about as often as the platform allows," not a
+        // literal "every single open" -- that promise can't be kept with
+        // this API. Copy is built in ShieldConfigurationExtension: the
+        // full open-quest list if there is one, otherwise a "why am I
+        // checking this?" reflection prompt -- either way a dismissable
+        // nudge, never a lock.
+        let effectiveReminderMinutes = group.rule.interruptOnOpen ? 1 : group.rule.reminderIntervalMinutes
+        // GroupActivityMarks.marks' default maxCount (30) was sized for
+        // this codebase's original single check-in feature, where
+        // intervals were tens of minutes -- at interruptOnOpen's forced
+        // 1-minute interval, 30 marks would only cover 30 minutes of
+        // cumulative daily use before silently going quiet for the rest
+        // of the day (no threshold left registered to fire). Scaled up
+        // here so interruptOnOpen keeps covering roughly the same total
+        // daily use (~1 hour) a normal reminder interval already does.
+        // Still a bounded, finite registration count, not "hundreds" --
+        // but same caveat as the 30 default before it: Apple's actual
+        // per-activity event ceiling isn't documented anywhere this
+        // codebase has found, so watch for reminders drying out after an
+        // hour of continuous use during rehearsal.
+        let markCap = group.rule.interruptOnOpen ? 60 : 30
+        var events: [DeviceActivityEvent.Name: DeviceActivityEvent] = [:]
+        for mark in GroupActivityMarks.marks(intervalMinutes: effectiveReminderMinutes, maxCount: markCap) {
+            events[GroupIdentity.eventName(groupID: group.id, kind: "reminder", mark: mark)] =
+                DeviceActivityEvent(applications: tokens, threshold: GroupActivityMarks.components(forMinutes: mark))
         }
+        registerActivity(
+            GroupIdentity.reminderActivityName(for: group.id),
+            schedule: DeviceActivitySchedule(intervalStart: dayStart, intervalEnd: dayEnd, repeats: true),
+            events: events
+        )
 
         lastError = nil
     }
