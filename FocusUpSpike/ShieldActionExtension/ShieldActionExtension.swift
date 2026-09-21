@@ -34,23 +34,21 @@ import UserNotifications
 ///   "shown periodically."
 /// - Limit budget-exceeded lockout: neither button releases the app --
 ///   the token is deliberately left in the store so the restriction
-///   survives the tap. This is one of two behaviors in this file that
-///   are unverified on-device; confirm both before relying on them for
-///   the demo (the other is routeToQuests's iOS 26.5+ path below).
+///   survives the tap. Still unverified on-device; confirm before
+///   relying on it for the demo.
 ///
 /// Note on "why routeToQuests" exists as its own thing rather than a
-/// plain `.close`: this codebase already tried, on iOS 26.5+,
-/// `ShieldActionResponse.openParentalControlsApp` -- a real case, not a
-/// gap in the SDK as an earlier version of this comment claimed -- to
-/// open the host app directly instead of going through a notification
-/// tap. It was added in "Redo: Blocker" (git 6db3424) and reverted same
-/// day in "Back to ShieldAction" (git 13c3ccd) for an unrecorded reason,
-/// plausibly because despite its name it opens the SYSTEM Screen Time
-/// settings, not the app that owns the shield. Re-added in routeToQuests
-/// below behind the same availability check, falling back to the
-/// notification-tap pattern (proven back to iOS 16) on earlier versions
-/// -- see that function's doc comment for what still needs confirming on
-/// a real 26.5+ device.
+/// plain `.close`: on iOS 26.5+, `ShieldActionResponse.openParentalControlsApp`
+/// opens the host app (FocusUp) directly -- device-confirmed on this
+/// project's own hardware, landing straight on the Quests tab with no
+/// notification-tap step needed. (This codebase tried it once before,
+/// in "Redo: Blocker" (git 6db3424), then reverted it same day in "Back
+/// to ShieldAction" (git 13c3ccd) for an unrecorded reason -- possibly
+/// an unrelated issue with that attempt's full-screen QuestFocusView,
+/// since the case itself now checks out.) Falls back to the
+/// notification-tap pattern (proven back to iOS 16) on pre-26.5
+/// versions, which still needs its own on-device confirmation on an
+/// older-OS device since all verification so far has been on 26.5+.
 class ShieldActionExtension: ShieldActionDelegate {
     override func handle(action: ShieldAction, for application: ApplicationToken, completionHandler: @escaping (ShieldActionResponse) -> Void) {
         guard let group = GroupStore.group(containing: application) else {
@@ -158,20 +156,16 @@ class ShieldActionExtension: ShieldActionDelegate {
     }
 
     /// Routes the user to FocusUp's Quests tab. On iOS 26.5+,
-    /// ShieldActionResponse exposes .openParentalControlsApp, a real
-    /// case this codebase tried once before (git history: added in
-    /// "Redo: Blocker" 6db3424, reverted same day in "Back to
-    /// ShieldAction" 13c3ccd) and then backed away from for an
-    /// unrecorded reason -- possibly because, despite the name
-    /// suggesting otherwise, it opens the SYSTEM Screen Time settings
-    /// rather than the app that owns the shield, which wouldn't land the
-    /// user in FocusUp's Quests tab at all. Re-added here behind the
-    /// same availability check with QuestRoute still set beforehand (in
-    /// case it DOES route into this app), but its actual destination on
-    /// a real 26.5+ device is unverified and must be confirmed before
-    /// relying on it -- if it turns out to open Settings instead, revert
-    /// this and keep only the notification-tap fallback below, which is
-    /// proven to work back to iOS 16.
+    /// ShieldActionResponse.openParentalControlsApp opens FocusUp itself
+    /// directly (device-confirmed on this project's hardware: lands on
+    /// the Quests tab with no notification-tap step) -- despite the
+    /// name, it does NOT open system Screen Time settings, which was the
+    /// working assumption before this was tested. QuestRoute is still
+    /// set beforehand so the app knows which tab to land on once it
+    /// opens, exactly as it does for the notification-tap fallback path.
+    /// That fallback (for pre-26.5 devices) hasn't itself been confirmed
+    /// on an older-OS device yet -- everything verified so far has been
+    /// on 26.5+, where the code never reaches the `else` branch.
     private func routeToQuests(completionHandler: @escaping (ShieldActionResponse) -> Void) {
         QuestRoute.request()
         if #available(iOS 26.5, *) {
