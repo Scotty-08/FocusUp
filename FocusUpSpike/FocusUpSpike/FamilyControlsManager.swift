@@ -162,6 +162,34 @@ final class FamilyControlsManager: ObservableObject {
         TaskStore.saveTasks(updated)
     }
 
+    /// Merges Canvas assignments (from CanvasClient.sync) into the
+    /// Quest Log. Matches existing quests by `canvasAssignmentID`, not
+    /// title or URL, so re-syncing after an assignment's due date or
+    /// name changes on Canvas's side updates the existing quest instead
+    /// of creating a second one -- and never touches `isCompleted` or
+    /// `priority` on a match, since those are the user's own choices
+    /// about a quest they may have already been working from.
+    func mergeCanvasAssignments(_ assignments: [CanvasAssignment]) {
+        var updated = tasks
+        for assignment in assignments {
+            if let idx = updated.firstIndex(where: { $0.canvasAssignmentID == assignment.id }) {
+                updated[idx].title = assignment.name
+                updated[idx].dueDate = assignment.dueAt
+                updated[idx].canvasURL = assignment.htmlUrl
+            } else {
+                updated.append(FocusTask(
+                    title: assignment.name,
+                    dueDate: assignment.dueAt,
+                    priority: .medium,
+                    canvasURL: assignment.htmlUrl,
+                    canvasAssignmentID: assignment.id
+                ))
+            }
+        }
+        tasks = updated
+        TaskStore.saveTasks(updated)
+    }
+
     /// Releases every Block-rule group, not just ones "about" this task
     /// -- there's no per-group link anymore, so completing ANY quest is
     /// what unlocks blocking, uniformly. See

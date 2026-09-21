@@ -136,7 +136,9 @@ struct QuestDetailView: View {
                 title: title,
                 isCompleted: existingTask.isCompleted,
                 dueDate: resolvedDueDate,
-                priority: priority
+                priority: priority,
+                canvasURL: existingTask.canvasURL,
+                canvasAssignmentID: existingTask.canvasAssignmentID
             ))
         } else {
             manager.addTask(title: title, dueDate: resolvedDueDate, priority: priority)

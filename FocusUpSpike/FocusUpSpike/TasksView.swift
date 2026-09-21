@@ -2,8 +2,11 @@ import SwiftUI
 
 struct TasksView: View {
     @StateObject private var manager = FamilyControlsManager.shared
+    @StateObject private var canvas = CanvasClient.shared
     @State private var isCreatingQuest = false
     @State private var editingTask: FocusTask?
+    @State private var isShowingCanvasSettings = false
+    @Environment(\.openURL) private var openURL
 
     /// Every quest is equally active (see TaskStore) -- this is purely a
     /// DISPLAY order, not persisted or used to pick anything. Incomplete
@@ -76,6 +79,16 @@ struct TasksView: View {
         .preferredColorScheme(.dark)
         .navigationTitle("Quest Log")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    isShowingCanvasSettings = true
+                } label: {
+                    Image(systemName: canvas.isConnected ? "graduationcap.fill" : "graduationcap")
+                        .foregroundStyle(canvas.isConnected ? PlayerTheme.cyan : PlayerTheme.textMuted)
+                }
+            }
+        }
         .onAppear {
             manager.refreshTasks()
         }
@@ -84,6 +97,9 @@ struct TasksView: View {
         }
         .sheet(item: $editingTask) { task in
             QuestDetailView(existingTask: task)
+        }
+        .sheet(isPresented: $isShowingCanvasSettings) {
+            CanvasSettingsView()
         }
     }
 
@@ -117,6 +133,28 @@ struct TasksView: View {
             }
 
             Spacer()
+
+            if let canvasURL = task.canvasURL {
+                Button {
+                    openURL(canvasURL)
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.up.forward.square")
+                        Text("CANVAS")
+                    }
+                    .font(.system(size: 10, weight: .heavy))
+                    .tracking(0.5)
+                    .foregroundStyle(PlayerTheme.cyan)
+                    .padding(.horizontal, 8)
+                    .frame(height: 26)
+                    .overlay(Rectangle().strokeBorder(PlayerTheme.cyan.opacity(0.5), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                // A plain Button already consumes its own tap without
+                // triggering the row's onTapGesture (same as the
+                // completion checkbox above) -- opening the assignment
+                // never also opens the edit sheet or completes the quest.
+            }
         }
         .padding(12)
         .opacity(task.isCompleted ? 0.55 : 1)

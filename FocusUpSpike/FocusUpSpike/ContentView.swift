@@ -25,6 +25,11 @@ struct ContentView: View {
             await friends.syncProfile()
             await friends.refresh()
         }
+        // Best-effort, same as the friends sync above -- a no-op
+        // whenever Canvas isn't connected.
+        Task {
+            await CanvasClient.shared.sync(into: manager)
+        }
         // Consumes the breadcrumb ShieldActionExtension leaves when the
         // shield's "Open Quests" button is tapped (see QuestRoute in
         // GoalStore.swift and ShieldActionExtension.handleLimit) -- the
