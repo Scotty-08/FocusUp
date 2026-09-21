@@ -28,13 +28,12 @@ import UserNotifications
 ///   just dismisses the nudge, ALWAYS removes the token, and returns
 ///   `.none` (not `.close`), which drops the user back into the app they
 ///   were already using instead of kicking them out -- no task
-///   completion, no ignore recorded. `interruptOnOpen` no longer changes
-///   this dismiss behavior (see FamilyControlsManager.activateLimit's
-///   doc comment): an earlier version left the token shielded for that
-///   mode on the theory that `.none` would grant the current attempt
-///   through anyway, which device testing proved false -- it just made
-///   the app permanently unreachable. `interruptOnOpen` now only forces
-///   a much shorter reminder cadence, it doesn't touch this code path.
+///   completion, no ignore recorded. Dismissing also starts the
+///   group's "shield again after N minutes" cooldown (GroupCooldown).
+///   The token is always removed on dismiss: an earlier version left it
+///   shielded on the theory that `.none` would grant the current
+///   attempt through anyway, which device testing proved false -- it
+///   just made the app permanently unreachable.
 /// - Limit budget-exceeded lockout: neither button releases the app --
 ///   the token is deliberately left in the store so the restriction
 ///   survives the tap. Still unverified on-device; confirm before
@@ -130,29 +129,28 @@ class ShieldActionExtension: ShieldActionDelegate {
             // primary button this way whenever any quest is open) --
             // the user is leaving this app for FocusUp's Quests tab, not
             // continuing to use it, so the shield's token is left
-            // exactly as it is either way (whether it stays because of
-            // interruptOnOpen is irrelevant on this path).
+            // exactly as it is.
             routeToQuests(completionHandler: completionHandler)
         default:
-            // .limitReminder (or an unexpected nil) -- just a nudge,
-            // dismiss it without recording completion or ignore. The
-            // token IS always removed here, regardless of interruptOnOpen
-            // -- device-tested: leaving it shielded and returning .none
+            // .limitReminder (or an unexpected nil) -- the Shield-mode
+            // greeting or a while-you-use-it reminder. Either way the
+            // user can tap through: dismiss it without recording
+            // completion or ignore. The token IS always removed --
+            // device-tested: leaving it shielded and returning .none
             // does NOT grant even momentary access, it just re-shows the
             // shield with no way out (see FamilyControlsManager.
-            // activateLimit's doc comment for the full story). The next
-            // reminder mark will reshield it -- interruptOnOpen just
-            // forces that mark to fire roughly every minute instead of
-            // the user's chosen interval, it doesn't change this dismiss
-            // behavior at all anymore. .none (not .close) is what drops
-            // the user back into the app they were already using, rather
-            // than kicking them out to the home screen -- "Continue"
-            // should actually continue.
+            // activateLimit's doc comment). Two things bring the shield
+            // back: the next while-you-use-it reminder mark, and the
+            // "shield again after N minutes" cooldown started here
+            // (GroupCooldown -- unverified that an extension may register
+            // monitoring; confirm on device). .none (not .close) drops
+            // the user back into the app instead of kicking them out.
             let store = ManagedSettingsStore(named: GroupIdentity.storeName(for: group.id))
             var apps = store.shield.applications ?? []
             apps.remove(application)
             store.shield.applications = apps
             GroupRuntimeState.setShieldReason(nil, for: group.id)
+            GroupCooldown.start(for: group)
             completionHandler(.none)
         }
     }

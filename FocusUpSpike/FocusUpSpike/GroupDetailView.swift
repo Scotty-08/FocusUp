@@ -25,7 +25,7 @@ struct GroupDetailView: View {
     @State private var dailyBudgetMinutes: Int
     @State private var windows: [ScheduleWindow]
     @State private var reminderIntervalMinutes: Int
-    @State private var interruptOnOpen: Bool
+    @State private var reshieldMinutes: Int
     @State private var isPickerPresented = false
     @State private var showDeleteConfirm = false
 
@@ -40,7 +40,7 @@ struct GroupDetailView: View {
         _dailyBudgetMinutes = State(initialValue: rule?.dailyBudgetMinutes ?? 30)
         _windows = State(initialValue: rule?.windows ?? [])
         _reminderIntervalMinutes = State(initialValue: rule?.reminderIntervalMinutes ?? 5)
-        _interruptOnOpen = State(initialValue: rule?.interruptOnOpen ?? false)
+        _reshieldMinutes = State(initialValue: rule?.effectiveReshieldMinutes ?? GroupRule.minReshieldMinutes)
     }
 
     var body: some View {
@@ -152,7 +152,7 @@ struct GroupDetailView: View {
             HUDLabel(text: "Rule")
             HStack(spacing: 10) {
                 ruleKindButton(.block, title: "Block", subtitle: "Fully inaccessible until you complete a quest.")
-                ruleKindButton(.limit, title: "Limit", subtitle: "Accessible, with reminders and an optional daily cap.")
+                ruleKindButton(.limit, title: "Shield", subtitle: "You can open it, but the shield greets you first.")
             }
 
             if ruleKind == .limit {
@@ -197,7 +197,7 @@ struct GroupDetailView: View {
                 if hasDailyLimit {
                     numberField(label: "Daily budget", value: $dailyBudgetMinutes, suffix: "min/day", range: 5...480)
                 } else {
-                    Text("Apps stay accessible with no automatic lockout -- just reminders below.")
+                    Text("Apps stay accessible with no automatic lockout -- just the shield and reminders below.")
                         .font(.system(size: 10))
                         .foregroundStyle(PlayerTheme.textMuted)
                 }
@@ -209,48 +209,38 @@ struct GroupDetailView: View {
         }
     }
 
-    /// Check-in settings for a Limit group. The while-you-use-it reminder
-    /// is ALWAYS on (every Limit group registers it, see
-    /// FamilyControlsManager.activateLimit); "shield when I open it" is
-    /// an optional extra backed by rule.interruptOnOpen. iOS has no
-    /// "every single open" trigger for another app, so that extra is the
-    /// closest approximation -- the same reminder at a 1-minute cadence,
-    /// which is why the interval field is inert while it's on -- and the
-    /// copy says so rather than promising more.
+    /// Shield-mode settings. The shield greets the user on open (they
+    /// can tap through), and the while-you-use-it reminder is always on
+    /// -- both are inherent to the mode, not toggles. iOS can't detect
+    /// the user leaving another app, so "greeted on open" is
+    /// approximated by a cooldown: after tapping through, the shield
+    /// comes back after `reshieldMinutes` (platform minimum 15).
     private var reminderStyleSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("WHILE YOU USE IT")
+                Text("WHEN YOU OPEN IT")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(PlayerTheme.textMuted)
-                numberField(label: "Remind every", value: $reminderIntervalMinutes, suffix: "min of use", range: 1...60)
-                    .disabled(interruptOnOpen)
-                    .opacity(interruptOnOpen ? 0.4 : 1)
-                Text("Always on. Apps stay accessible -- this brings up a dismissable check-in, never a lock, unless the daily budget above runs out.")
+                numberField(label: "Shield again after", value: $reshieldMinutes, suffix: "min", range: GroupRule.minReshieldMinutes...480)
+                Text("The shield greets you when you open the app, and you can tap through to enter. After you do, it comes back once this much time has passed. iOS can't tell when you leave an app, so this timer stands in for \"every open\" -- 15 minutes is the shortest it allows.")
                     .font(.system(size: 10))
                     .foregroundStyle(PlayerTheme.textMuted)
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                Toggle(isOn: $interruptOnOpen.animation()) {
-                    Text("Also shield when I open it")
-                        .font(.system(size: 11))
-                        .foregroundStyle(PlayerTheme.textMuted)
-                }
-                .toggleStyle(.switch)
-                .tint(PlayerTheme.cyan)
-
-                if interruptOnOpen {
-                    Text("Optional. The check-in shows about a minute after you open the app, and keeps coming about every minute, so the interval above is paused while this is on. The platform has no true \"every single open\" trigger -- this is the closest it gets. You can always tap through it; it's a pause, not a lock.")
-                        .font(.system(size: 10))
-                        .foregroundStyle(PlayerTheme.textMuted)
-                }
+                Text("WHILE YOU USE IT")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(PlayerTheme.textMuted)
+                numberField(label: "Remind every", value: $reminderIntervalMinutes, suffix: "min of use", range: 1...60)
+                Text("Always on. A dismissable check-in while you're in the app -- never a lock, unless the daily budget above runs out.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(PlayerTheme.textMuted)
             }
         }
     }
 
     /// Typable numeric entry (as opposed to a tap-to-increment Stepper).
-    /// Clamps to `range` as soon as a keystroke parses to a value outside
+    /// Clamps to the top of `range` as soon as a keystroke parses above
     /// it -- an empty or partially-typed field doesn't push anything to
     /// the binding yet, so ordinary typing is unaffected; only a value
     /// that actually lands out of range snaps back.
@@ -267,8 +257,12 @@ struct GroupDetailView: View {
                     .frame(width: 64, height: 36)
                     .overlay(Rectangle().strokeBorder(PlayerTheme.cyanDim, lineWidth: 1))
                     .onChange(of: value.wrappedValue) { _, newValue in
-                        let clamped = min(max(newValue, range.lowerBound), range.upperBound)
-                        if clamped != newValue { value.wrappedValue = clamped }
+                        // Only the upper bound snaps while typing -- clamping
+                        // to the lower bound here would fight the user
+                        // (typing "30" into a 15-minimum field would jump
+                        // to 15 after the "3"). Lower bounds are enforced
+                        // in save().
+                        if newValue > range.upperBound { value.wrappedValue = range.upperBound }
                     }
                 Text(suffix)
                     .font(.system(size: 11))
@@ -366,10 +360,10 @@ struct GroupDetailView: View {
         let isLimit = ruleKind == .limit
         let rule = GroupRule(
             kind: ruleKind,
-            dailyBudgetMinutes: (isLimit && hasDailyLimit) ? dailyBudgetMinutes : nil,
+            dailyBudgetMinutes: (isLimit && hasDailyLimit) ? max(dailyBudgetMinutes, 5) : nil,
             windows: isLimit ? windows : [],
-            reminderIntervalMinutes: reminderIntervalMinutes,
-            interruptOnOpen: isLimit && interruptOnOpen
+            reminderIntervalMinutes: max(reminderIntervalMinutes, 1),
+            reshieldMinutes: isLimit ? max(reshieldMinutes, GroupRule.minReshieldMinutes) : nil
         )
         if let existingGroup {
             manager.updateGroup(AppGroup(
