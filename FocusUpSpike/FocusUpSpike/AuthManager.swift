@@ -1,13 +1,15 @@
 import Foundation
 import Combine
 
-/// Local-only sign-in state. Sign in with Apple is real (Apple issues a
-/// genuine identity). The email/phone + password path is a UI-only
-/// placeholder for today -- it does not create a real account, verify
-/// anything, or store a password securely; it just flips this same flag
-/// so the flow can be tried end to end. Wiring up real email/phone
-/// accounts needs a backend decision (see TEAM_CHAT.md) before it's
-/// built for real.
+/// Local sign-in state -- what gates the UI. The app is local-first: this
+/// flips immediately and never waits on the network. The server account
+/// (Supabase, see BackendClient) is established separately and
+/// best-effort; friends features light up once it exists.
+///
+/// Sign in with Apple is real (Apple issues a genuine identity). The
+/// email + password path is real too WHEN the backend is configured
+/// (BackendConfig.isConfigured); otherwise it stays a UI-only placeholder
+/// that just flips this flag so the flow can be tried end to end.
 @MainActor
 final class AuthManager: ObservableObject {
     static let shared = AuthManager()
@@ -73,6 +75,10 @@ final class AuthManager: ObservableObject {
     }
 
     func signOut() {
+        // Drop the server session and cached friends so the next account
+        // on this device doesn't inherit them.
+        BackendClient.shared.signOut()
+        FriendsStore.shared.reset()
         isSignedIn = false
         displayName = nil
         signInMethod = nil

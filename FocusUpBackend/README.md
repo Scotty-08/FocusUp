@@ -1,5 +1,7 @@
 # FocusUp Backend
 
+> **Superseded:** FocusUp's server is now Supabase -- see `../supabase/`. This Node backend is kept for reference and is not used by the app.
+
 A real Node.js + TypeScript + PostgreSQL API for FocusUp: accounts
 (Sign in with Apple, plus email/password) and task sync. Built
 alongside the `FocusUpSpike` iOS project, but as its own thing — the

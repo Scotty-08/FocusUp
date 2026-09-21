@@ -138,9 +138,9 @@ struct AppGroup: Identifiable, Codable, Equatable {
                 let extra = sortedWindows.count - 1
                 parts.append(extra > 0 ? "No limits \(first.label), +\(extra) more" : "No limits \(first.label)")
             }
-            parts.append("Reminds every \(rule.reminderIntervalMinutes) min of use")
+            parts.append("Reminder every \(rule.reminderIntervalMinutes) min of use")
             if rule.checkInOnOpen {
-                parts.append("Check-in on open, again after \(rule.effectiveReshieldMinutes) min")
+                parts.append("First-open check-in, again after \(rule.effectiveReshieldMinutes) min")
             }
             return parts.joined(separator: ". ") + "."
         }
