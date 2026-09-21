@@ -5,10 +5,13 @@ struct TasksView: View {
     @State private var isCreatingQuest = false
     @State private var editingTask: FocusTask?
 
-    /// Every quest is equally active (see TaskStore) -- this is purely a
-    /// DISPLAY order, not persisted or used to pick anything. Incomplete
-    /// quests first (highest priority, earliest deadline first; undated
-    /// quests rank behind dated ones), completed quests after.
+    /// Display order for the list: incomplete quests first (highest
+    /// priority, earliest deadline first; undated quests rank behind
+    /// dated ones), completed quests after. This is independent of
+    /// which one is "active" (see TaskStore.autoPickNextTask) -- that's
+    /// a separate pick, not necessarily the first item shown here, since
+    /// an active quest stays active even if something else later
+    /// outranks it in this sort.
     private var sortedTasks: [FocusTask] {
         manager.tasks.sorted { a, b in
             if a.isCompleted != b.isCompleted { return !a.isCompleted && b.isCompleted }
@@ -67,7 +70,7 @@ struct TasksView: View {
                     .listStyle(.plain)
                 }
 
-                Text("Every quest is active -- all of them show on your groups' shields, there's no single quest to pick. Sorted here by priority, then deadline. Tap a quest to edit it.")
+                Text("Quests are auto-ordered by priority, then due date -- earliest first, same tier same-day ties broken randomly, no date = least urgent. Whatever quest is active stays active until it's cleared, even if something else outranks it. Tap \"Set Active\" to override, or tap a quest to edit it.")
                     .font(.system(size: 10))
                     .foregroundStyle(HunterTheme.textMuted)
                     .padding(20)
@@ -88,7 +91,8 @@ struct TasksView: View {
     }
 
     private func questRow(_ task: FocusTask) -> some View {
-        HStack(spacing: 12) {
+        let isActive = manager.activeTaskID == task.id
+        return HStack(spacing: 12) {
             Button {
                 manager.toggleTaskCompletion(task)
             } label: {
@@ -106,9 +110,9 @@ struct TasksView: View {
                     .foregroundStyle(task.isCompleted ? HunterTheme.textMuted : HunterTheme.textPrimary)
                     .strikethrough(task.isCompleted)
                 if let due = task.dueDate {
-                    Text("DEADLINE \(due.formatted(date: .abbreviated, time: .omitted).uppercased())\(task.isCompleted ? " · CLEARED" : "")")
+                    Text("DEADLINE \(due.formatted(date: .abbreviated, time: .omitted).uppercased())\(task.isCompleted ? " · CLEARED" : (isActive ? " · IN PROGRESS" : ""))")
                         .font(.system(size: 10))
-                        .foregroundStyle(isPastDue(due) && !task.isCompleted ? HunterTheme.danger : HunterTheme.textMuted)
+                        .foregroundStyle(isPastDue(due) && !task.isCompleted ? HunterTheme.danger : (isActive ? HunterTheme.cyan : HunterTheme.textMuted))
                 } else {
                     Text(task.isCompleted ? "NO DEADLINE · CLEARED" : "NO DEADLINE")
                         .font(.system(size: 10))
@@ -117,10 +121,36 @@ struct TasksView: View {
             }
 
             Spacer()
+
+            if task.isCompleted {
+                EmptyView()
+            } else if isActive {
+                Text("ACTIVE")
+                    .font(.system(size: 10, weight: .heavy))
+                    .foregroundStyle(HunterTheme.bg)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 4)
+                    .background(HunterTheme.cyan)
+            } else {
+                Button {
+                    manager.setActiveTask(task.id)
+                } label: {
+                    Text("SET ACTIVE")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(HunterTheme.cyan)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 4)
+                }
+                .buttonStyle(.plain)
+                .overlay(Rectangle().strokeBorder(HunterTheme.cyanDim, lineWidth: 1))
+            }
         }
         .padding(12)
         .opacity(task.isCompleted ? 0.55 : 1)
-        .hudPanel()
+        .hudPanel(
+            borderColor: isActive && !task.isCompleted ? HunterTheme.cyanDim : Color.white.opacity(0.06),
+            cornerAccent: isActive && !task.isCompleted ? HunterTheme.cyan : .clear
+        )
     }
 
     private func priorityDot(_ priority: TaskPriority) -> some View {
