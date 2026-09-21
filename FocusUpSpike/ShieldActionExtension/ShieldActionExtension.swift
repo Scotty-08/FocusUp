@@ -28,8 +28,9 @@ import UserNotifications
 ///   just dismisses the nudge, ALWAYS removes the token, and returns
 ///   `.none` (not `.close`), which drops the user back into the app they
 ///   were already using instead of kicking them out -- no task
-///   completion, no ignore recorded. Dismissing also starts the
-///   group's "shield again after N minutes" cooldown (GroupCooldown).
+///   completion, no ignore recorded. If the group has the optional
+///   check-in-on-open, dismissing also starts its cooldown
+///   (GroupCooldown).
 ///   The token is always removed on dismiss: an earlier version left it
 ///   shielded on the theory that `.none` would grant the current
 ///   attempt through anyway, which device testing proved false -- it
@@ -132,25 +133,27 @@ class ShieldActionExtension: ShieldActionDelegate {
             // exactly as it is.
             routeToQuests(completionHandler: completionHandler)
         default:
-            // .limitReminder (or an unexpected nil) -- the Shield-mode
-            // greeting or a while-you-use-it reminder. Either way the
-            // user can tap through: dismiss it without recording
-            // completion or ignore. The token IS always removed --
+            // .limitReminder (or an unexpected nil) -- a while-you-use-it
+            // reminder or, if the group has check-in-on-open, the
+            // open check-in. Either way the user can tap through:
+            // dismiss it without recording completion or ignore. The token IS always removed --
             // device-tested: leaving it shielded and returning .none
             // does NOT grant even momentary access, it just re-shows the
             // shield with no way out (see FamilyControlsManager.
-            // activateLimit's doc comment). Two things bring the shield
-            // back: the next while-you-use-it reminder mark, and the
-            // "shield again after N minutes" cooldown started here
-            // (GroupCooldown -- unverified that an extension may register
-            // monitoring; confirm on device). .none (not .close) drops
+            // activateLimit's doc comment). The next while-you-use-it
+            // reminder mark brings the shield back, and so does the
+            // check-in-on-open cooldown started here when that option is
+            // on (GroupCooldown -- unverified that an extension may
+            // register monitoring; confirm on device). .none (not .close) drops
             // the user back into the app instead of kicking them out.
             let store = ManagedSettingsStore(named: GroupIdentity.storeName(for: group.id))
             var apps = store.shield.applications ?? []
             apps.remove(application)
             store.shield.applications = apps
             GroupRuntimeState.setShieldReason(nil, for: group.id)
-            GroupCooldown.start(for: group)
+            if group.rule.checkInOnOpen {
+                GroupCooldown.start(for: group)
+            }
             completionHandler(.none)
         }
     }

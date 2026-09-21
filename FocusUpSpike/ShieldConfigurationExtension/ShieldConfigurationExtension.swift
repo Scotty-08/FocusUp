@@ -112,7 +112,7 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
         if let task = pressingQuest {
             headline = "Still on \u{201C}\(task.title)\u{201D}?"
             primaryLabel = "Open Quests"
-            actionHint = "Open Quests to check in, or Dismiss to keep using \(group.name)."
+            actionHint = "Open Quests to check in, or Dismiss to keep going into \(group.name)."
         } else {
             // No quests at all to remind about -- ask the reflective
             // question instead of just saying nothing to check on. The
