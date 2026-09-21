@@ -100,26 +100,26 @@ struct GroupRule: Codable, Equatable {
 /// together. Each group gets its own ManagedSettingsStore identity (see
 /// GroupIdentity) so multiple groups with different rules can be active
 /// at once, independently -- unlike the single fixed store this app used
-/// before groups existed.
+/// before groups existed. No per-group task link: every group is
+/// connected to the WHOLE quest list instead (see both shield
+/// extensions' quest-list display, and
+/// GroupStore.unshieldAllBlockGroups below for how Block groups release).
 struct AppGroup: Identifiable, Codable, Equatable {
     var id: UUID = UUID()
     var name: String
     var selection: FamilyActivitySelection
     var rule: GroupRule
-    var taskID: UUID?
     var createdAt: Date = Date()
 
-    /// Plain-language summary for the group card. Reads the linked
-    /// task's title live rather than caching it, so an edited task
-    /// title shows up immediately without re-saving every group that
-    /// references it.
-    func summaryText(taskTitle: String?) -> String {
+    /// Plain-language summary for the group card. Deliberately doesn't
+    /// depend on the current quest count for Block -- blocking has to
+    /// keep meaning the same thing whether there are 0 quests or 10 (see
+    /// unshieldAllBlockGroups's doc comment for why), so the rule
+    /// description shouldn't imply otherwise.
+    func summaryText() -> String {
         switch rule.kind {
         case .block:
-            if let taskTitle, !taskTitle.isEmpty {
-                return "Blocked until \u{201C}\(taskTitle)\u{201D} is done."
-            }
-            return "Blocked until its linked quest is done."
+            return "Blocked until you complete a quest."
         case .limit:
             var parts: [String] = []
             if let minutes = rule.dailyBudgetMinutes {
@@ -174,28 +174,24 @@ enum GroupStore {
         loadGroups().first { $0.selection.applicationTokens.contains(token) }
     }
 
-    /// Releases every Block-rule group linked to this task -- called
-    /// whenever a task is completed, from ANY path (a shield's own
-    /// primary button, or the Tasks tab), so two different Block groups
-    /// that both point at the same task both release, not just whichever
-    /// group's shield happened to be tapped.
-    static func unshieldGroups(linkedToCompletedTask taskID: UUID) {
-        for group in loadGroups() where group.taskID == taskID && group.rule.kind == .block {
+    /// Releases every Block-rule group -- called once, from
+    /// FamilyControlsManager.toggleTaskCompletion, exactly when a quest
+    /// transitions to completed. Deliberately an EVENT trigger, not a
+    /// "the quest list happens to be empty" STATE check: with no
+    /// per-group task link anymore, completing any one quest unlocks
+    /// every Block group at once (there's no way to tell them apart
+    /// well enough to unlock selectively). Critically, this also means
+    /// blocking still works correctly with zero quests -- there's simply
+    /// no completion event to fire, so a Block group with nothing to
+    /// complete stays blocked, rather than an "unlock when the list is
+    /// empty" rule silently opening it. activateBlock always shields
+    /// unconditionally for the same reason -- re-saving a group (even
+    /// unedited) re-arms it.
+    static func unshieldAllBlockGroups() {
+        for group in loadGroups() where group.rule.kind == .block {
             ManagedSettingsStore(named: GroupIdentity.storeName(for: group.id)).shield.applications = nil
             GroupRuntimeState.setShieldReason(nil, for: group.id)
         }
-    }
-
-    /// Called when a task is deleted so groups don't keep pointing at a
-    /// task that no longer exists.
-    static func unlinkGroups(fromDeletedTask taskID: UUID) {
-        var groups = loadGroups()
-        var changed = false
-        for i in groups.indices where groups[i].taskID == taskID {
-            groups[i].taskID = nil
-            changed = true
-        }
-        if changed { saveGroups(groups) }
     }
 }
 
