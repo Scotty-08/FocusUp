@@ -13,13 +13,27 @@ import SwiftUI
 /// reserved for the streak/level-up moment (StreakCelebrationView).
 /// Answering "Yes" can still lead straight into that gold moment right
 /// after this one dismisses, via the normal completion path.
+///
+/// A quest imported from Canvas (task.canvasURL != nil) swaps both
+/// buttons for a Canvas-specific pair: "Yes, submit to Canvas" opens
+/// the assignment's own Canvas page AND checks the quest off in one tap
+/// (no separate "now go check it off" step), and "Abandon Quest" -- not
+/// "Not yet" -- lets the user bail on it entirely rather than get
+/// re-prompted for something they've decided not to do; see
+/// FamilyControlsManager.abandonPressingQuestPrompt for what that does
+/// to the quest and the blocker. A user-typed quest keeps the original
+/// "Yes, completed it" / "Not yet" pair, which never removes anything.
 struct MostPressingQuestView: View {
     let task: FocusTask
     var onCompleted: () -> Void
+    var onAbandoned: () -> Void
     var onNotYet: () -> Void
 
+    @Environment(\.openURL) private var openURL
     @State private var scale: CGFloat = 0.3
     @State private var opacity: Double = 0
+
+    private var isCanvasQuest: Bool { task.canvasURL != nil }
 
     var body: some View {
         ZStack {
@@ -78,9 +92,12 @@ struct MostPressingQuestView: View {
 
                 VStack(spacing: 10) {
                     Button {
-                        dismiss(completed: true)
+                        if let canvasURL = task.canvasURL {
+                            openURL(canvasURL)
+                        }
+                        dismiss(then: onCompleted)
                     } label: {
-                        Text("Yes, completed it")
+                        Text(isCanvasQuest ? "Yes, submit to Canvas" : "Yes, completed it")
                             .font(.system(size: 16, weight: .bold))
                             .foregroundStyle(PlayerTheme.bg)
                             .frame(maxWidth: .infinity)
@@ -92,9 +109,9 @@ struct MostPressingQuestView: View {
                     .buttonStyle(.plain)
 
                     Button {
-                        dismiss(completed: false)
+                        dismiss(then: isCanvasQuest ? onAbandoned : onNotYet)
                     } label: {
-                        Text("Not yet")
+                        Text(isCanvasQuest ? "Abandon Quest" : "Not yet")
                             .font(.system(size: 14, weight: .bold))
                             .foregroundStyle(PlayerTheme.textMuted)
                             .frame(height: 40)
@@ -124,16 +141,12 @@ struct MostPressingQuestView: View {
             .overlay(Rectangle().strokeBorder(task.priority.color.opacity(0.6), lineWidth: 1))
     }
 
-    private func dismiss(completed: Bool) {
+    private func dismiss(then action: @escaping () -> Void) {
         withAnimation(.easeOut(duration: 0.25)) {
             opacity = 0
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-            if completed {
-                onCompleted()
-            } else {
-                onNotYet()
-            }
+            action()
         }
     }
 }
@@ -142,6 +155,7 @@ struct MostPressingQuestView: View {
     MostPressingQuestView(
         task: FocusTask(title: "Apply to 3 internships", dueDate: Date(), priority: .high),
         onCompleted: {},
+        onAbandoned: {},
         onNotYet: {}
     )
 }

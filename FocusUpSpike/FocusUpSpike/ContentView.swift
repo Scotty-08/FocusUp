@@ -30,6 +30,31 @@ struct ContentView: View {
         Task {
             await CanvasClient.shared.sync(into: manager)
         }
+        // Same idea, but for assignments that arrived via the
+        // FocusUpCanvasExtension Safari extension instead of the PAT
+        // sync above -- whatever it dropped in the shared App Group
+        // container since the last check. A no-op when there's nothing
+        // pending, so safe to call every time the app comes to the
+        // foreground.
+        let pendingFromExtension = CanvasExtensionStore.takePending()
+        if !pendingFromExtension.isEmpty {
+            manager.mergeCanvasAssignments(pendingFromExtension)
+        }
+        // Same idea again, but for assignments a laptop/desktop browser
+        // pushed in via FocusUpCanvasWeb -- there's no shared App Group
+        // with a different device, so those land in the
+        // canvas_pending_assignments table on the server instead, and
+        // this is what pulls them down. Best-effort and off the
+        // critical path like the friends sync above; deletes each row
+        // once it's merged so it's only ever delivered once.
+        Task {
+            guard BackendClient.shared.isConnected else { return }
+            if let pendingFromWeb = try? await BackendClient.shared.fetchPendingCanvasAssignments(),
+               !pendingFromWeb.isEmpty {
+                manager.mergeCanvasAssignments(pendingFromWeb)
+                try? await BackendClient.shared.clearPendingCanvasAssignments(ids: pendingFromWeb.map(\.id))
+            }
+        }
         // Consumes the breadcrumb ShieldActionExtension leaves when the
         // shield's "Open Quests" button is tapped (see QuestRoute in
         // GoalStore.swift and ShieldActionExtension.handleLimit) -- the
@@ -114,6 +139,7 @@ struct ContentView: View {
                 MostPressingQuestView(
                     task: task,
                     onCompleted: { manager.resolvePressingQuestPrompt(completed: true) },
+                    onAbandoned: { manager.abandonPressingQuestPrompt() },
                     onNotYet: { manager.resolvePressingQuestPrompt(completed: false) }
                 )
             }

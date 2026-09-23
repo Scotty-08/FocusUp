@@ -8,6 +8,9 @@
 --   profiles     one public player card per account: handle, avatar, level...
 --   friendships  a request between two accounts; 'pending' until accepted.
 --   cheers       short encouragement messages between accepted friends.
+--   canvas_pending_assignments  hand-off from the desktop/browser
+--                extension (FocusUpCanvasWeb) to the app -- see that
+--                table's own comment below.
 --
 -- Security model: the iOS app talks to this database directly with the
 -- public "anon" key + the signed-in user's token, so Row Level Security is
@@ -297,3 +300,56 @@ grant execute on function public.list_friends() to authenticated;
 grant execute on function public.send_cheer(uuid, text) to authenticated;
 grant execute on function public.my_cheers() to authenticated;
 grant execute on function public.mark_cheers_seen() to authenticated;
+
+-- ------------------------------------------------ canvas_pending_assignments
+
+-- Hand-off table for the desktop/browser extension (FocusUpCanvasWeb):
+-- it reads a signed-in student's upcoming Canvas assignments from
+-- whatever browser session is open on that computer, and writes them
+-- here. The app pulls its own rows down on refresh (see
+-- BackendClient.fetchPendingCanvasAssignments), merges them into the
+-- Quest Log, then deletes them (clearPendingCanvasAssignments) so a row
+-- is only ever delivered once. This is the network equivalent of what
+-- CanvasExtensionStore.swift does locally for the Safari extension on
+-- iOS -- same idea, just for a device that isn't the phone.
+--
+-- id is the Canvas assignment's own id, not a table-wide unique value
+-- on its own -- (user_id, id) together are the key, since the same
+-- numeric id can exist on a different school's Canvas for a different
+-- user.
+create table if not exists public.canvas_pending_assignments (
+    user_id uuid not null references auth.users (id) on delete cascade,
+    id bigint not null,
+    name text not null,
+    due_at timestamptz,
+    html_url text not null,
+    created_at timestamptz not null default now(),
+    primary key (user_id, id)
+);
+
+alter table public.canvas_pending_assignments enable row level security;
+
+-- Own rows only, both ways -- the extension inserts/updates as itself,
+-- the app reads and then deletes what it just merged. No cross-user
+-- access in either direction, and no function needed (unlike
+-- friendships/cheers) since there's no interaction between two users
+-- here to arbitrate.
+drop policy if exists "read own pending canvas assignments" on public.canvas_pending_assignments;
+create policy "read own pending canvas assignments"
+    on public.canvas_pending_assignments for select to authenticated
+    using (user_id = auth.uid());
+
+drop policy if exists "insert own pending canvas assignments" on public.canvas_pending_assignments;
+create policy "insert own pending canvas assignments"
+    on public.canvas_pending_assignments for insert to authenticated
+    with check (user_id = auth.uid());
+
+drop policy if exists "update own pending canvas assignments" on public.canvas_pending_assignments;
+create policy "update own pending canvas assignments"
+    on public.canvas_pending_assignments for update to authenticated
+    using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+drop policy if exists "delete own pending canvas assignments" on public.canvas_pending_assignments;
+create policy "delete own pending canvas assignments"
+    on public.canvas_pending_assignments for delete to authenticated
+    using (user_id = auth.uid());

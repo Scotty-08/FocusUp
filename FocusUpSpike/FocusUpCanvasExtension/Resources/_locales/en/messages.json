@@ -1,0 +1,10 @@
+{
+    "extension_name": {
+        "message": "FocusUp for Canvas",
+        "description": "The display name for the extension."
+    },
+    "extension_description": {
+        "message": "Import your upcoming Canvas assignments into FocusUp's Quest Log.",
+        "description": "Description of what the extension does."
+    }
+}

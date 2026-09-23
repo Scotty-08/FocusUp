@@ -199,18 +199,10 @@ private struct CanvasCourse: Decodable {
     let name: String?
 }
 
-struct CanvasAssignment: Decodable {
-    let id: Int
-    let name: String
-    let dueAt: Date?
-    let htmlUrl: URL
-
-    enum CodingKeys: String, CodingKey {
-        case id, name
-        case dueAt = "due_at"
-        case htmlUrl = "html_url"
-    }
-}
+// CanvasAssignment now lives in CanvasExtensionStore.swift -- shared,
+// byte-identical, with the FocusUpCanvasExtension Safari extension target
+// so both the PAT sync path here and the browser-session sync path there
+// produce the exact same type for FamilyControlsManager to merge.
 
 /// Separate Keychain service from BackendClient's -- a different
 /// credential (a Canvas PAT, not a Supabase session) with its own

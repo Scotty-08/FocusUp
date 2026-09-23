@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <h1>FocusUp for Canvas</h1>
+
+    <div id="authSection">
+        <p class="hint">Sign in with your FocusUp account so assignments from this computer reach your Quest Log.</p>
+        <input type="email" id="email" placeholder="Email" autocomplete="username">
+        <input type="password" id="password" placeholder="Password" autocomplete="current-password">
+        <button id="signInButton">Sign In</button>
+        <p id="authError" class="error"></p>
+    </div>
+
+    <div id="syncSection" style="display: none;">
+        <p id="accountLine" class="hint"></p>
+        <p id="status">Checking this site…</p>
+        <button id="actionButton" style="display: none;"></button>
+        <button id="offButton" style="display: none;">Turn Off for This Site</button>
+        <button id="signOutButton" class="linklike">Sign Out</button>
+    </div>
+
+    <script type="module" src="popup.js"></script>
+</body>
+</html>
