@@ -70,8 +70,8 @@ struct TasksView: View {
                     .listStyle(.plain)
                 }
 
-                Text("Every quest is active -- all of them show on your groups' shields, there's no single quest to pick. Sorted here by priority, then deadline. Tap a quest to edit it.")
-                    .font(.system(size: 10))
+                Text("Open Canvas in Safari to refresh your quests.")
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(PlayerTheme.textMuted)
                     .padding(20)
             }

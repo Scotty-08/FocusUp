@@ -122,6 +122,40 @@ final class FamilyControlsManager: ObservableObject {
         pressingQuestPrompt = nil
     }
 
+    /// "Abandon Quest" -- MostPressingQuestView only offers this (in
+    /// place of "Not yet") for a quest that came in from Canvas, as the
+    /// alternative to "Yes, submit to Canvas." Unlike "Not yet" (which
+    /// just closes the prompt and leaves the quest untouched), this
+    /// removes the quest entirely and records it the same way a
+    /// shield's own "give up" button does (StatsStore.recordIgnore --
+    /// breaks the streak). Since the user is choosing to walk away
+    /// rather than come back to it, whatever's currently blocking them
+    /// is released too, same as a completion would: every Block group
+    /// unshields (GroupStore.unshieldAllBlockGroups), and any Limit
+    /// group mid-check-in releases its token and starts its own
+    /// cooldown (GroupCooldown) so the next check-in is
+    /// `reshieldMinutes` away instead of immediate -- mirroring what
+    /// ShieldActionExtension.handleLimit's default dismiss branch does,
+    /// just triggered from inside the app instead of from the shield.
+    func abandonPressingQuestPrompt() {
+        guard let task = pressingQuestPrompt else { return }
+        deleteTasks(withIDs: [task.id])
+        StatsStore.recordIgnore()
+        ignoreCount = StatsStore.ignoreCount
+        currentStreak = StatsStore.currentStreak
+        GroupStore.unshieldAllBlockGroups()
+        for group in groups where group.rule.kind == .limit && isEnforced(group) {
+            let store = ManagedSettingsStore(named: GroupIdentity.storeName(for: group.id))
+            store.shield.applications = nil
+            GroupRuntimeState.setShieldReason(nil, for: group.id)
+            if group.rule.checkInOnOpen {
+                GroupCooldown.start(for: group)
+            }
+        }
+        refreshGroups()
+        pressingQuestPrompt = nil
+    }
+
     // MARK: - Tasks
 
     /// Re-reads tasks from the shared App Group store -- call whenever

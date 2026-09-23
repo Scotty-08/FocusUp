@@ -1,0 +1,55 @@
+:root {
+    color-scheme: light dark;
+}
+
+body {
+    width: 230px;
+    padding: 14px;
+    font-family: system-ui;
+}
+
+h1 {
+    font-size: 14px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin: 0 0 8px 0;
+}
+
+#status {
+    font-size: 12px;
+    line-height: 1.4;
+    color: gray;
+    min-height: 32px;
+}
+
+#status.error {
+    color: #d33;
+}
+
+#status.success {
+    color: #2a8;
+}
+
+button {
+    width: 100%;
+    padding: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+#offButton {
+    margin-top: 8px;
+    font-weight: 400;
+    font-size: 11px;
+    color: #d33;
+    background: none;
+    border: none;
+    text-decoration: underline;
+    padding: 4px;
+}

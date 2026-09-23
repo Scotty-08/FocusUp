@@ -309,6 +309,40 @@ final class BackendClient: ObservableObject {
         )
     }
 
+    /// Assignments a desktop/browser extension (FocusUpCanvasWeb) has
+    /// already pushed to the server -- the network equivalent of what
+    /// CanvasExtensionStore.takePending() reads locally for the Safari
+    /// extension on iOS, just reachable from any device instead of only
+    /// this one. RLS scopes every row to the signed-in user, so nothing
+    /// to filter here.
+    ///
+    /// Decoded with a plain decoder (not `Self.decoder`, which converts
+    /// snake_case JSON keys and would collide with CanvasAssignment's
+    /// own explicit CodingKeys) -- same decoder shape CanvasClient uses
+    /// against Canvas's own API.
+    func fetchPendingCanvasAssignments() async throws -> [CanvasAssignment] {
+        let data = try await send(method: "GET", path: "/rest/v1/canvas_pending_assignments", authorized: true)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        do {
+            return try decoder.decode([CanvasAssignment].self, from: data)
+        } catch {
+            throw BackendError.invalidResponse
+        }
+    }
+
+    /// Deletes rows once their assignments have been merged into the
+    /// Quest Log, so the next fetch only returns what's actually new.
+    func clearPendingCanvasAssignments(ids: [Int]) async throws {
+        guard !ids.isEmpty else { return }
+        let idList = ids.map(String.init).joined(separator: ",")
+        _ = try await send(
+            method: "DELETE", path: "/rest/v1/canvas_pending_assignments",
+            query: [URLQueryItem(name: "id", value: "in.(\(idList))")],
+            authorized: true
+        )
+    }
+
     private func decode<T: Decodable>(_ data: Data) throws -> T {
         do {
             return try Self.decoder.decode(T.self, from: data)

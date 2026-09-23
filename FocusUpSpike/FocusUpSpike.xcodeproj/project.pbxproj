@@ -17,6 +17,7 @@
 		8257B25B305E357800C8CB3D /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8257B25A305E357800C8CB3D /* WidgetKit.framework */; };
 		8257B25D305E357800C8CB3D /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8257B25C305E357800C8CB3D /* SwiftUI.framework */; };
 		8257B26E305E357A00C8CB3D /* FocusUpActivityExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 8257B259305E357800C8CB3D /* FocusUpActivityExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		8257B39F3061BB5D00C8CB3D /* FocusUpCanvasExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 8257B3873061BB5D00C8CB3D /* FocusUpCanvasExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -48,6 +49,13 @@
 			remoteGlobalIDString = 8257B258305E357800C8CB3D;
 			remoteInfo = FocusUpActivityExtension;
 		};
+		8257B39D3061BB5D00C8CB3D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 000000000000000000000000 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 8257B3863061BB5D00C8CB3D;
+			remoteInfo = FocusUpCanvasExtension;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -59,6 +67,7 @@
 				8257B17A305CBBAB00C8CB3D /* DeviceActivityMonitorExtension.appex in Embed Foundation Extensions */,
 				8257B26E305E357A00C8CB3D /* FocusUpActivityExtension.appex in Embed Foundation Extensions */,
 				8257B148305CB11300C8CB3D /* ShieldConfigurationExtension.appex in Embed Foundation Extensions */,
+				8257B39F3061BB5D00C8CB3D /* FocusUpCanvasExtension.appex in Embed Foundation Extensions */,
 				8257B15B305CB13B00C8CB3D /* ShieldActionExtension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
@@ -76,6 +85,7 @@
 		8257B259305E357800C8CB3D /* FocusUpActivityExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FocusUpActivityExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		8257B25A305E357800C8CB3D /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		8257B25C305E357800C8CB3D /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		8257B3873061BB5D00C8CB3D /* FocusUpCanvasExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FocusUpCanvasExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -113,6 +123,13 @@
 				Info.plist,
 			);
 			target = 8257B258305E357800C8CB3D /* FocusUpActivityExtension */;
+		};
+		8257B3A33061BB5D00C8CB3D /* Exceptions for "FocusUpCanvasExtension" folder in "FocusUpCanvasExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 8257B3863061BB5D00C8CB3D /* FocusUpCanvasExtension */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -157,6 +174,18 @@
 			path = FocusUpActivity;
 			sourceTree = "<group>";
 		};
+		8257B3883061BB5D00C8CB3D /* FocusUpCanvasExtension */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				8257B3A33061BB5D00C8CB3D /* Exceptions for "FocusUpCanvasExtension" folder in "FocusUpCanvasExtension" target */,
+			);
+			explicitFolders = (
+				Resources/_locales,
+				Resources/images,
+			);
+			path = FocusUpCanvasExtension;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -191,6 +220,11 @@
 				8257B25B305E357800C8CB3D /* WidgetKit.framework in Frameworks */,
 			);
 		};
+		8257B3843061BB5D00C8CB3D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -202,6 +236,7 @@
 				8257B154305CB13B00C8CB3D /* ShieldActionExtension */,
 				8257B173305CBBAB00C8CB3D /* DeviceActivityMonitorExtension */,
 				8257B25E305E357800C8CB3D /* FocusUpActivity */,
+				8257B3883061BB5D00C8CB3D /* FocusUpCanvasExtension */,
 				8257B13C305CB11300C8CB3D /* Frameworks */,
 				000000000000000000000020 /* Products */,
 			);
@@ -215,6 +250,7 @@
 				8257B152305CB13B00C8CB3D /* ShieldActionExtension.appex */,
 				8257B170305CBBAB00C8CB3D /* DeviceActivityMonitorExtension.appex */,
 				8257B259305E357800C8CB3D /* FocusUpActivityExtension.appex */,
+				8257B3873061BB5D00C8CB3D /* FocusUpCanvasExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -250,6 +286,7 @@
 				8257B15A305CB13B00C8CB3D /* PBXTargetDependency */,
 				8257B179305CBBAB00C8CB3D /* PBXTargetDependency */,
 				8257B26D305E357A00C8CB3D /* PBXTargetDependency */,
+				8257B39E3061BB5D00C8CB3D /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				000000000000000000000010 /* FocusUpSpike */,
@@ -331,6 +368,24 @@
 			productReference = 8257B259305E357800C8CB3D /* FocusUpActivityExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		8257B3863061BB5D00C8CB3D /* FocusUpCanvasExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8257B3A03061BB5D00C8CB3D /* Build configuration list for PBXNativeTarget "FocusUpCanvasExtension" */;
+			buildPhases = (
+				8257B3833061BB5D00C8CB3D /* Sources */,
+				8257B3843061BB5D00C8CB3D /* Frameworks */,
+				8257B3853061BB5D00C8CB3D /* Resources */,
+			);
+			buildRules = (
+			);
+			fileSystemSynchronizedGroups = (
+				8257B3883061BB5D00C8CB3D /* FocusUpCanvasExtension */,
+			);
+			name = FocusUpCanvasExtension;
+			productName = FocusUpCanvasExtension;
+			productReference = 8257B3873061BB5D00C8CB3D /* FocusUpCanvasExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -356,6 +411,9 @@
 					8257B258305E357800C8CB3D = {
 						CreatedOnToolsVersion = 27.0;
 					};
+					8257B3863061BB5D00C8CB3D = {
+						CreatedOnToolsVersion = 27.0;
+					};
 				};
 			};
 			buildConfigurationList = 000000000000000010000000 /* Build configuration list for PBXProject "FocusUpSpike" */;
@@ -377,6 +435,7 @@
 				8257B151305CB13B00C8CB3D /* ShieldActionExtension */,
 				8257B16F305CBBAB00C8CB3D /* DeviceActivityMonitorExtension */,
 				8257B258305E357800C8CB3D /* FocusUpActivityExtension */,
+				8257B3863061BB5D00C8CB3D /* FocusUpCanvasExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -403,6 +462,11 @@
 			);
 		};
 		8257B257305E357800C8CB3D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		8257B3853061BB5D00C8CB3D /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
 			);
@@ -435,6 +499,11 @@
 			files = (
 			);
 		};
+		8257B3833061BB5D00C8CB3D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -457,6 +526,11 @@
 			isa = PBXTargetDependency;
 			target = 8257B258305E357800C8CB3D /* FocusUpActivityExtension */;
 			targetProxy = 8257B26C305E357A00C8CB3D /* PBXContainerItemProxy */;
+		};
+		8257B39E3061BB5D00C8CB3D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 8257B3863061BB5D00C8CB3D /* FocusUpCanvasExtension */;
+			targetProxy = 8257B39D3061BB5D00C8CB3D /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -935,6 +1009,79 @@
 			};
 			name = Release;
 		};
+		8257B3A13061BB5D00C8CB3D /* Debug configuration for PBXNativeTarget "FocusUpCanvasExtension" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = FocusUpCanvasExtension/FocusUpCanvasExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6KZ2Y5MG5M;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FocusUpCanvasExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = FocusUpCanvasExtension;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					SafariServices,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.scottgray.FocusUpSpike.FocusUpCanvasExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		8257B3A23061BB5D00C8CB3D /* Release configuration for PBXNativeTarget "FocusUpCanvasExtension" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = FocusUpCanvasExtension/FocusUpCanvasExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6KZ2Y5MG5M;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FocusUpCanvasExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = FocusUpCanvasExtension;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					SafariServices,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.scottgray.FocusUpSpike.FocusUpCanvasExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -983,6 +1130,14 @@
 			buildConfigurations = (
 				8257B270305E357A00C8CB3D /* Debug configuration for PBXNativeTarget "FocusUpActivityExtension" */,
 				8257B271305E357A00C8CB3D /* Release configuration for PBXNativeTarget "FocusUpActivityExtension" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		8257B3A03061BB5D00C8CB3D /* Build configuration list for PBXNativeTarget "FocusUpCanvasExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8257B3A13061BB5D00C8CB3D /* Debug configuration for PBXNativeTarget "FocusUpCanvasExtension" */,
+				8257B3A23061BB5D00C8CB3D /* Release configuration for PBXNativeTarget "FocusUpCanvasExtension" */,
 			);
 			defaultConfigurationName = Release;
 		};

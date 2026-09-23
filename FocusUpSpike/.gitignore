@@ -1,0 +1,8 @@
+# Local secrets -- never commit real Supabase credentials.
+FocusUpSpike/BackendSecrets.swift
+
+# Xcode / macOS
+.DS_Store
+xcuserdata/
+*.xcuserstate
+DerivedData/
