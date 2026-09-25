@@ -1,13 +1,24 @@
 import UIKit
 
-/// Redesigned per Scott's request: simple, elegant, with a "new-gen
-/// AI" touch -- so this drops the boxed badge + letterform entirely in
-/// favor of two shapes: a thin ring (focus / a target, quiet and
-/// geometric) and a small solid 4-point sparkle at its center (the
-/// spark/"thinking" glyph a lot of AI products use). No text glyph, no
-/// filled tile -- it sits directly on the shield's own background.
+/// FocusUp's mark: the "Shutter" logo -- four shutter blades turning around
+/// a dark lens inside a square frame. Source art and exports live in
+/// design/logo/ (logos.py concept B, export.py); the same artwork is the app
+/// icon and the browser extension icons.
+///
+/// Bundled next to this file as ShieldMark@2x.png / @3x.png (160pt, cropped
+/// tight so the mark fills the whole image -- iOS sizes the shield icon
+/// itself, so this just gives it the most logo per point). If the
+/// image is ever missing, the previous ring-and-sparkle emblem is drawn in
+/// code so the shield is never left without an icon.
 enum FocusUpEmblem {
     static let image: UIImage = {
+        if let mark = UIImage(named: "ShieldMark") {
+            return mark.withRenderingMode(.alwaysOriginal)
+        }
+        return fallback
+    }()
+
+    private static let fallback: UIImage = {
         let size = CGSize(width: 108, height: 108)
         return UIGraphicsImageRenderer(size: size).image { context in
             let cyan = UIColor(red: 115/255, green: 191/255, blue: 202/255, alpha: 1)
@@ -45,4 +56,3 @@ enum FocusUpEmblem {
         }.withRenderingMode(.alwaysOriginal)
     }()
 }
-

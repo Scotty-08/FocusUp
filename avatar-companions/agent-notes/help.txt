@@ -1,0 +1,186 @@
+usage: rive COMMAND
+
+commands:
+  create                    scaffold a project (rive.yaml, scene.rml, AGENTS.md, CLAUDE.md)
+  <project-dir>             preview - open the scene in a window sized to the
+                            artboard, rebuilding as you edit; runs until closed
+                            (dir defaults to .)
+  login                     sign in with your Rive account
+  logout                    sign out
+  whoami                    show who you're signed in as
+  docs                      the documentation; new to Rive, start here
+  samples                   pick a runnable example project and copy it
+  schema                    look up types
+  inspect                   print the resolved scene
+  push                      upload to a file in your Rive account (not a preview)
+  pull                      overwrite the project from its Rive file
+  doctor                    check the environment: version, auth, ports, project
+  lsp                       language server over stdio, for editor integrations
+  update                    install the latest published CLI
+  switch                    pick a CLI version, or select one by name
+  uninstall                 remove a cached CLI version, or pick one
+  analytics                 show or set usage analytics (on|off)
+
+  rive --version            print version and exit
+
+<project-dir> flags:
+  --init                    write rive.yaml if missing, then continue
+  --verify                  check the project without writing a .riv;
+                            exit 1 on errors
+  --once                    write an unsigned .riv; exit 1 on errors
+  --publish                 write a signed .riv; needs `rive login`;
+                            exit 1 on errors
+  --test                    run Tests scripts; exit 1 on failures
+  --rev=<path>              also write an editor .rev; needs `rive login`
+                            (with --once or --publish)
+  --screenshot[=<p>]        build, render one frame headless, write a png
+                            (defaults to build/<name>.png)
+  --advance=<N|Ns|Nms>
+                            step N frames at 60fps, or that much animation time,
+                            at this point in the --pointer/--semantic-action
+                            sequence; repeatable; one after the last gesture is the
+                            settle before the capture; needs --screenshot,
+                            --semantics or --data-dump
+  --viewport=<WxH>          the size the scene is laid out at: the
+                            capture size with --screenshot/--semantics/
+                            --data-dump,
+                            the window size when watching. Defaults to the
+                            artboard's own
+  --bench=<frames>          build, time that many frames headless, report
+                            advance/render stats and wasm memory growth
+  --data=<path=value>       set a view model property before the scene runs;
+                            repeatable
+  --data-dump[=<p>]         build, run headless, write the bound view model
+                            values, the globals and the nested artboards as JSON,
+                            to a path or - (or stdout) for standard output
+                            (defaults to build/<name>.data.json); combines with
+                            --screenshot, --viewport, --data, --pointer, --advance
+  --data-dump-filter=<paths>
+                            keep only these property paths, comma separated,
+                            globs allowed (battery/*,score)
+  --data-dump-every=<N|Ns|Nms>
+                            sample every N frames (or that much animation time,
+                            1s, 250ms) rather than once at the end, as JSON
+                            Lines: a header, a frame-0 baseline, then only what
+                            changed. Must be a whole number of frames at 60fps.
+                            Includes the frames gestures advance internally
+  --gamepad=<event>         synthesise a gamepad event: connect, disconnect,
+                            button@<name|N>:down|up|<0..1>,
+                            axis@<name|N>:<-1..1>; repeatable. Names are the
+                            W3C standard ones (south, west, dpadLeft, leftX);
+                            a bare index is W3C 0-based
+  --key=<key[:phase][+mods]>synthesise a keystroke through the real dispatch path:
+                            right, a:down, escape:up, tab:down+shift;
+                            phase is down|repeat|up, or press (down then up)
+                            and is what it defaults to. Repeatable, in order
+                            with --pointer and --advance. Keys only reach what
+                            holds focus; with nothing focused it says so
+  --pointer=<kind@x,y>      synthesise down|up|move|exit|click at artboard coords;
+                            repeatable; drag@x1,y1>x2,y2[:steps] presses,
+                            drags and releases; needs --screenshot,
+                            --semantics or --data-dump
+  --semantics[=<p>]         build, run headless, write the accessibility tree
+                            as JSON, to a path or - (or stdout) for standard
+                            output (defaults to build/<name>.semantics.json);
+                            combines with --screenshot, --viewport, --data,
+                            --pointer, --advance
+  --semantic-action=<type@label>
+                            fire tap|increase|decrease on the node with that
+                            accessibility label; repeatable, in order with --pointer
+                            and --advance;
+                            needs --screenshot, --semantics or --data-dump
+  --artboard=<name>         artboard to show on launch
+  --fit=<mode>              how the artboard maps into the view:
+                            fill, contain, cover, fit-width, fit-height, none,
+                            scale-down, layout (default). layout resizes the
+                            artboard to the window and reflows it; the rest
+                            scale it at its authored size
+  --serve[=port]            also push builds to connected players
+  --headless-serve          serve with no local window
+  --debug[=port]            host a script debugger for VS Code
+  --quiet                   no terminal log
+  --optimize                faster script compile, harder to debug
+  --define=<NAME[=n]>       set an AssemblyScript build constant (default 1);
+                            repeatable, overrides rive.yaml defines
+  --immediate               render on the main thread
+  --format=json             with --once/--verify/--publish/--test: one JSON
+                            report envelope on stdout (--json is the same)
+
+create:
+  rive create               prompt for a name, then write that directory
+  rive create <dir>         write the project in <dir> (`.` is the cwd)
+  rive create [dir] --from-rev=<file.rev>
+                            convert an editor .rev into a project: scene.rml
+                            with its scripts and assets as files (dir must
+                            be empty or new)
+  rive create [dir] --from-remote-file[=<fileId>]
+                            the same, on a file downloaded from your Rive
+                            account; without an id, pick one. rive.yaml
+                            records it, so `rive push <dir>` updates it
+
+schema:
+  rive schema <Type>        properties of a type (inherited included)
+  rive schema --search <t>  find a type or property by name, then pick
+                            one to describe
+
+  --list                    pick a type to describe
+  --animatable              only properties that can be keyed
+  --bindable                only properties that can be data bound
+  --all                     include editor-only properties
+
+docs:
+  rive docs                 the documentation index; new to Rive, start here
+  rive docs <topic>         one topic, e.g. layout or luau/protocols
+
+  --list                    pick a topic to read
+  --search <text>           lines matching text, every topic; pick one
+                            to read
+  --path                    the docs directory on disk
+
+samples:
+  rive samples              pick one and copy it into a new directory;
+                            without a picker, every sample with a
+                            description
+
+  --path                    the samples directory on disk
+
+inspect:
+  rive inspect [dir]        resolved scene as JSON (dir defaults to .)
+
+  --json                    JSON output (default)
+  --all                     include editor-only properties
+  --artboard=<name>         one artboard only
+
+push:
+  rive push [dir]           build and push the .rev to the bound Rive file
+
+  --project=<id>            project for the first push (a picker chooses
+                            otherwise)
+  --list                    list your projects and their ids
+  --name=<label>            revision history label
+
+terminal commands (type while watching):
+  s|screenshot [path]       write a png of the window
+  p|pause                   toggle playback
+  a|artboard [name]         switch artboard, or list them
+  f|fit [mode]              switch fit, or show the modes
+  z|size                    resize the window to the artboard, and
+                            follow it again after a drag
+  d|data [path]             write the bound data as JSON
+                            (- or stdout for standard output)
+  rev [path]                export an editor .rev
+  ?|help                    list commands
+
+signing in:
+  rive login                --publish, --rev, and rive push share this
+                            token; anyone who logged in before the CLI write
+                            scope must run rive login again
+  every other project run   no session, and works offline: the bare
+                            watch, --once, --verify, --test, --screenshot,
+                            --semantics, --data-dump, --serve, --headless-serve
+  standalone commands       no session either -- though update, whoami
+                            and doctor do reach the network
+
+exit codes:
+  0 ok    1 failure    2 usage    3 not logged in
+  6 tests failed    7 service unreachable

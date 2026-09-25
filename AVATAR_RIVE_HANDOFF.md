@@ -1,0 +1,31 @@
+# FocusUp: unlockable animated companions — Claude implementation brief
+
+## User intent
+Implement a fantasy-game-themed animated avatar collection in the existing iOS app. The user likes the supplied concept: a slightly human hooded adventurer plus capybara, fox, axolotl, and owl companions. Completing tasks unlocks more characters and cosmetic augments. Eyes, shoes, and cloaks are independently editable. Preserve the existing app and progression data. This brief records the requested direction; exact milestone numbers are proposals, not approved balancing requirements.
+
+## Visual reference
+Open `design/avatars/companion-roster-concept.png` in the repository. This is AI-generated flattened concept artwork, NOT a layered asset, sprite sheet, or working Rive rig. Do not use the entire board as the in-app avatar. Match recognizable silhouettes, navy/cyan/gold fantasy styling and friendly personality. Simplify painterly shading into layered vector art as necessary; do not promise pixel-identical conversion.
+
+Roster: human starter, stocky brown capybara with blunt muzzle and small round ears, orange fox, lavender axolotl with gills, cream/brown owl. Adapt proportions and clothing to each species; do not stretch one humanoid rig across all of them. Capybara keeps its visible animal face. Human keeps glowing eyes in a shadowed hood and a subtle visible lower face.
+
+Four interchangeable cosmetic themes: Forest (green cloak, amber eyes, brown boots, leaf brooch), Storm (navy/cyan cloak, cyan eyes, silver boots, floating crystal), Ember (charcoal/orange cloak, orange eyes, bronze boots, flame aura), Celestial (ivory/violet/gold cloak, violet eyes, gold-trim boots, orbiting star). These are example combinations, not locked bundles. Cosmetics do not imply focus-blocking power changes.
+
+## Rive recommendation and actual prerequisite
+Rive is the preferred candidate for polished interactive 2D animation, not mandatory. Verify current official Apple runtime and editor capabilities before selecting package/API versions. Rive artwork must be authored and rigged in the editor, then exported as a real `.riv` asset and bundled with the app. SwiftUI integration alone does not create the rig. A generated PNG cannot automatically provide independently swappable limbs/clothes.
+
+First inspect which Rive editor/automation tools are actually available to your session. If available, build the artwork and rig there. Otherwise create useful layered SVG source art and a precise rig specification, explain the remaining editor step, and request access or a real exported file. Do not fabricate a .riv file, invent editor automation APIs, silently replace the requested art with rectangles, or label a static image as animated. Do not require image generation just to create editable vector artwork. Keep editable source alongside exported runtime assets.
+
+Official references: https://rive.app/features and https://github.com/rive-app/rive-ios . Confirm current data binding/state-machine support against official docs; names below are proposed contracts, not claims about an existing file.
+
+## Build approach
+1. Inspect AGENTS.md, PROJECT_SPEC.md, current git changes, CharacterStore.swift, CharacterView.swift, current renderer/customization models, task completion/reward flow, and extension-shared persistence. Existing code has progressed since earlier discussions: adapt to current code and preserve XP, coins, inventory and outfits. No unrelated refactoring or signing changes.
+2. Prove one polished CAPYBARA first: idle breathing/blinking and a wave, with separately changeable eyes/cloak/shoes. Show the real in-app result for visual review before scaling art production. Continue reusable inventory/progression work independently.
+3. Use separate species artboards/rigs with a consistent runtime interface. Suggested states: idle, walk, wave, celebrate, disappointed; one-shot gestures return to idle. Add cloak follow-through, smooth transitions and restrained optional augment effects. Proposed properties: eyeStyleId, shoeStyleId, cloakStyleId, augmentId; translate them to supported data bindings or authored visibility states after runtime verification. Do not assume arbitrary SVG replacement at runtime.
+4. Keep unlock and task logic in Swift, separate from animation. Rive renders the selected character and state; it is not the source of truth for rewards. Trigger celebrations from real completion events, not view appearance.
+5. Use stable character/cosmetic IDs and a data-driven unlock catalog. Suggested character thresholds: human 0, capybara 10, fox 25, axolotl 50, owl 100 completed tasks. Make thresholds easy to adjust. Define augment milestones separately. Preserve existing currency mechanics unless the user chooses a change; do not silently convert purchases to task rewards.
+6. Award completion progress exactly once per eligible task. Repeated taps, reopening views, relaunch and extension-originated completion must not duplicate rewards. Give-up/abandon does not count as completion. Inspect existing persisted task history before choosing a migration/backfill strategy; do not invent historical completions from XP. Keep earned unlocks when a task is deleted unless the user chooses otherwise.
+7. Add character selection, locked previews with progress, and independent cosmetic slots. Persist choices, validate ownership, handle unsupported species/item combinations visibly, and provide a safe default if assets fail. Support offline bundled assets, Reduce Motion and pause animation offscreen/background. Avoid adding the Rive dependency to Screen Time extensions unnecessarily.
+8. After the first rig is approved, finish all five characters, four cosmetic themes and animations. Verify on device: task-to-unlock-to-equip flow, persisted state, no duplicate rewards, smooth transitions, species clothing fit, reduced motion, missing asset fallback and performance. Keep Screen Time blocking/unblocking behavior working.
+
+## Completion criteria
+Real layered source and working exported animation assets, SwiftUI integration, selectable unlocked characters, independently editable cosmetics, reliable persisted progression, clean build and physical-device visual verification. Report any art/editor work still outstanding honestly. No public App Store publication.

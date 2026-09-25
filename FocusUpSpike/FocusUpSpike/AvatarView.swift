@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The player's pixel avatar, drawn as crisp rects on a 16x18 grid -- no
+/// The original pixel avatar (kept as a fallback), drawn as crisp rects on a 16x18 grid -- no
 /// image assets. Robe, eye, and hem (cloak) colors and the headwear
 /// shape all come from the AvatarConfig, so customization actually shows
 /// on the character.
@@ -84,18 +84,20 @@ struct PixelAvatarView: View {
     }
 }
 
-/// A small framed avatar preview, used as the tappable swatch for each
-/// customization option (first-run creator and the upgrade shop) so every
-/// option shows exactly what it would look like on the player.
+/// A small framed companion portrait -- friends list, leaderboard, and
+/// anywhere else a whole animated companion would be too much. Shows the
+/// player's companion (humans in their skin tone).
 struct AvatarSwatch: View {
     let config: AvatarConfig
     var selected = false
     var dimmed = false
 
     var body: some View {
-        PixelAvatarView(config: config)
-            .frame(width: 34, height: 38)
-            .padding(8)
+        Image(CompanionCatalog.portraitName(for: config))
+            .resizable()
+            .scaledToFit()
+            .frame(width: 42, height: 42)
+            .padding(4)
             .background(Color(red: 0x0B / 255, green: 0x16 / 255, blue: 0x20 / 255))
             .clipShape(PixelFrameShape(cut: 6))
             .overlay(

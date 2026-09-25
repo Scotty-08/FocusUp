@@ -1,0 +1,13 @@
+{
+  "images": [
+    {
+      "filename": "portrait_fox_cyan.png",
+      "idiom": "universal",
+      "scale": "3x"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  }
+}

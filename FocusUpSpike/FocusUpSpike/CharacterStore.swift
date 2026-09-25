@@ -129,7 +129,60 @@ final class CharacterStore: ObservableObject {
             }
             checked = checked.setting(AvatarConfig.starter.itemID(for: slot), for: slot)
         }
+        if !isUnlocked(CompanionCatalog.species(checked.species)) {
+            checked.species = CompanionCatalog.defaultSpeciesID
+        }
+        checked.skin = min(max(checked.skin, 0), CompanionCatalog.skinTones.count - 1)
+        checked.hair = min(max(checked.hair, 0), CompanionCatalog.hairColors.count - 1)
         saveAvatar(checked)
+    }
+
+    // MARK: - Companions
+
+    /// Starters are always available, level unlocks open up as the player
+    /// levels (they never re-lock), coin unlocks once bought.
+    func isUnlocked(_ species: CompanionSpecies) -> Bool {
+        switch species.unlock {
+        case .starter: return true
+        case .level(let needed): return level >= needed
+        case .coins: return ownedItems.contains(species.ownedKey)
+        }
+    }
+
+    /// Switches companion. Cosmetics carry over -- every companion wears
+    /// the same eyes / cloak / boots / extras.
+    func selectSpecies(_ species: CompanionSpecies) {
+        guard isUnlocked(species) else { return }
+        saveAvatar(avatar.withSpecies(species.id))
+    }
+
+    /// Buys a coin-unlock companion and switches to it.
+    @discardableResult
+    func buy(_ species: CompanionSpecies) -> PurchaseResult {
+        guard case .coins(let price) = species.unlock else {
+            return isUnlocked(species) ? .alreadyOwned : .insufficientCoins
+        }
+        guard !ownedItems.contains(species.ownedKey) else { return .alreadyOwned }
+        guard coins >= price else { return .insufficientCoins }
+        coins -= price
+        ownedItems.insert(species.ownedKey)
+        defaults.set(coins, forKey: coinsKey)
+        defaults.set(Array(ownedItems), forKey: ownedKey)
+        saveAvatar(avatar.withSpecies(species.id))
+        return .purchased
+    }
+
+    /// Human starters only: skin tone / hair color are free choices.
+    func setSkin(_ index: Int) {
+        var copy = avatar
+        copy.skin = min(max(index, 0), CompanionCatalog.skinTones.count - 1)
+        saveAvatar(copy)
+    }
+
+    func setHair(_ index: Int) {
+        var copy = avatar
+        copy.hair = min(max(index, 0), CompanionCatalog.hairColors.count - 1)
+        saveAvatar(copy)
     }
 
     func equip(_ item: AvatarItem) {

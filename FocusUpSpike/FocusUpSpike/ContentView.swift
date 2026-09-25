@@ -139,7 +139,22 @@ struct ContentView: View {
                 MostPressingQuestView(
                     task: task,
                     onCompleted: { manager.resolvePressingQuestPrompt(completed: true) },
-                    onAbandoned: { manager.abandonPressingQuestPrompt() },
+                    // No iOS API lets an app hand focus back to whatever
+                    // app the user was in before the shield -- that's a
+                    // system-level privilege only the shield's OWN
+                    // buttons have (ShieldActionResponse.close/.none),
+                    // not something the host app can do once the user's
+                    // already left the shield and landed here. Landing
+                    // on Home (rather than staying on Quests, where
+                    // QuestRoute routed them) is the closest FocusUp can
+                    // get to "send them back out" -- the app they were
+                    // blocked on IS unblocked now (releaseActiveShields
+                    // already ran), so switching to it manually opens it
+                    // immediately with no shield in the way.
+                    onAbandoned: {
+                        manager.abandonPressingQuestPrompt()
+                        selectedTab = 0
+                    },
                     onNotYet: { manager.resolvePressingQuestPrompt(completed: false) }
                 )
             }

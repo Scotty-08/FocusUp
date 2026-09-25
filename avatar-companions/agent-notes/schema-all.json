@@ -1,0 +1,13 @@
+usage: rive schema <Type> [flags]
+       rive schema --search <text>
+
+  <Type>          properties of a core type, inherited included
+  --search <text> find types and properties by substring, then
+                  pick one to describe
+  --animatable    only properties that can be keyed
+  --bindable      only properties that can be data bound
+  --all           include editor-only properties
+  --json          JSON: the type as one object, or the --list /
+                  --search results as an array
+  --list          pick a type to describe; without a picker,
+                  every type name
