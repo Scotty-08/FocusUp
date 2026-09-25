@@ -53,6 +53,13 @@ struct FocusTask: Identifiable, Codable, Equatable {
     /// re-syncing, so re-running a sync updates the existing quest in
     /// place instead of creating a duplicate.
     var canvasAssignmentID: Int?
+
+    /// When the quest was checked off (nil while it's open). Completed
+    /// quests are cleared out of the Quest Log a while after this (see
+    /// FamilyControlsManager.purgeClearedQuests) so the list doesn't fill
+    /// up with finished work. Rewards and stats were already recorded at
+    /// completion, so clearing never takes anything back.
+    var completedAt: Date?
 }
 
 /// Shared (App Group) quest list -- written from the main app (add/
@@ -80,6 +87,21 @@ enum TaskStore {
     static func saveTasks(_ tasks: [FocusTask]) {
         guard let data = try? JSONEncoder().encode(tasks) else { return }
         defaults?.set(data, forKey: tasksKey)
+    }
+
+    /// Canvas assignments whose finished quest was cleared from the log.
+    /// A Canvas sync must not re-import them as brand-new open quests
+    /// (submitted assignments stay in Canvas's "upcoming" list until
+    /// they're due).
+    private static let clearedCanvasKey = "focusUp.clearedCanvasAssignmentIDs"
+
+    static func clearedCanvasAssignmentIDs() -> Set<Int> {
+        Set(defaults?.array(forKey: clearedCanvasKey) as? [Int] ?? [])
+    }
+
+    static func markCanvasAssignmentsCleared(_ ids: [Int]) {
+        let all = clearedCanvasAssignmentIDs().union(ids)
+        defaults?.set(Array(all), forKey: clearedCanvasKey)
     }
 
     /// Picks the single most pressing incomplete quest: highest priority

@@ -117,16 +117,13 @@ struct OnboardingView: View {
                     }
 
                     ZStack {
-                        FireAura(diameter: 170)
-                        PixelAvatarView(config: avatarDraft)
-                            .frame(width: 96, height: 108)
-                            .padding(20)
-                            .background(Color(red: 0x0B / 255, green: 0x16 / 255, blue: 0x20 / 255))
-                            .clipShape(PixelFrameShape(cut: 12))
-                            .overlay(PixelFrameShape(cut: 12).stroke(PlayerTheme.cyan, lineWidth: 3))
-                            .shadow(color: PlayerTheme.cyan.opacity(0.25), radius: 14)
+                        Circle()
+                            .fill(RadialGradient(colors: [PlayerTheme.cyan.opacity(0.18), .clear], center: .center, startRadius: 0, endRadius: 110))
+                            .frame(width: 210, height: 210)
+                        CompanionAvatarView(config: avatarDraft)
+                            .frame(width: 170, height: 196)
                     }
-                    .frame(height: 170)
+                    .frame(height: 200)
 
                     VStack(alignment: .leading, spacing: 6) {
                         HUDLabel(text: "Player Name", size: 10)
@@ -139,15 +136,21 @@ struct OnboardingView: View {
                             .hudPanel()
                     }
 
-                    // Only slots with a real choice among the free starter
-                    // options are shown -- headwear starts as just "None",
-                    // and the pricier colors are all bought later with
-                    // coins on the Player tab.
-                    ForEach(AvatarSlot.allCases.filter { AvatarCatalog.starterItems(in: $0).count > 1 }, id: \.self) { slot in
+                    // Everyone starts as a human: pick male/female, skin and
+                    // hair, then the free starter eyes and cloak. Everything
+                    // else is earned later on the Player tab.
+                    bodyRow
+                    lookRow(title: "Skin", colors: CompanionCatalog.skinTones.map { $0.color }, selected: avatarDraft.skin) {
+                        avatarDraft.skin = $0
+                    }
+                    lookRow(title: "Hair", colors: CompanionCatalog.hairColors.map { $0.color }, selected: avatarDraft.hair) {
+                        avatarDraft.hair = $0
+                    }
+                    ForEach([AvatarSlot.eyes, .cloak], id: \.self) { slot in
                         optionRow(slot)
                     }
 
-                    Text("More colors and headwear unlock on the Player tab -- buy them with the coins you earn from quests.")
+                    Text("More companions, cloaks, boots and extras unlock on the Player tab as you level up and earn coins from quests.")
                         .font(.system(size: 11))
                         .foregroundStyle(PlayerTheme.textMuted)
                         .multilineTextAlignment(.center)
@@ -192,6 +195,52 @@ struct OnboardingView: View {
         }
     }
 
+    private var bodyRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HUDLabel(text: "Body", size: 10)
+            HStack(spacing: 10) {
+                ForEach(["human.male", "human.female"], id: \.self) { id in
+                    let label = id == "human.female" ? "Female" : "Male"
+                    let selected = avatarDraft.species == id
+                    Button {
+                        avatarDraft = avatarDraft.withSpecies(id)
+                    } label: {
+                        Text(label.uppercased())
+                            .font(.system(size: 11, weight: .heavy))
+                            .tracking(0.8)
+                            .foregroundStyle(selected ? PlayerTheme.bg : PlayerTheme.cyan)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 36)
+                            .background(selected ? PlayerTheme.cyan : PlayerTheme.cyan.opacity(0.08))
+                            .overlay(Rectangle().strokeBorder(PlayerTheme.cyanDim, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(label)\(selected ? ", selected" : "")")
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func lookRow(title: String, colors: [Color], selected: Int, pick: @escaping (Int) -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HUDLabel(text: title, size: 10)
+            HStack(spacing: 10) {
+                ForEach(colors.indices, id: \.self) { i in
+                    Button { pick(i) } label: {
+                        Circle()
+                            .fill(colors[i])
+                            .frame(width: 32, height: 32)
+                            .overlay(Circle().stroke(i == selected ? PlayerTheme.cyan : Color.white.opacity(0.15),
+                                                     lineWidth: i == selected ? 3 : 1))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     private func optionRow(_ slot: AvatarSlot) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HUDLabel(text: slot.label, size: 10)
@@ -203,7 +252,7 @@ struct OnboardingView: View {
                             avatarDraft = avatarDraft.setting(item.id, for: slot)
                         } label: {
                             VStack(spacing: 4) {
-                                AvatarSwatch(config: avatarDraft.setting(item.id, for: slot), selected: selected)
+                                ItemIcon(item: item, selected: selected)
                                 Text(item.name)
                                     .font(.system(size: 9, weight: selected ? .heavy : .regular))
                                     .foregroundStyle(selected ? PlayerTheme.cyan : PlayerTheme.textMuted)
@@ -492,16 +541,13 @@ struct OnboardingView: View {
                     .shadow(color: PlayerTheme.gold.opacity(0.8), radius: 10)
 
                 ZStack {
-                    FireAura(diameter: 150)
-                    PixelAvatarView(config: character.avatar)
-                        .frame(width: 84, height: 95)
-                        .padding(18)
-                        .background(Color(red: 0x0B / 255, green: 0x16 / 255, blue: 0x20 / 255))
-                        .clipShape(PixelFrameShape(cut: 12))
-                        .overlay(PixelFrameShape(cut: 12).stroke(PlayerTheme.gold, lineWidth: 3))
-                        .shadow(color: PlayerTheme.gold.opacity(0.4), radius: 14)
+                    Circle()
+                        .fill(RadialGradient(colors: [PlayerTheme.gold.opacity(0.22), .clear], center: .center, startRadius: 0, endRadius: 100))
+                        .frame(width: 190, height: 190)
+                    CompanionAvatarView(config: character.avatar)
+                        .frame(width: 150, height: 172)
                 }
-                .frame(height: 150)
+                .frame(height: 180)
 
                 VStack(spacing: 4) {
                     Text("\(character.level)")

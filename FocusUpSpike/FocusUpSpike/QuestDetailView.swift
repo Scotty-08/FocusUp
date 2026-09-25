@@ -138,7 +138,8 @@ struct QuestDetailView: View {
                 dueDate: resolvedDueDate,
                 priority: priority,
                 canvasURL: existingTask.canvasURL,
-                canvasAssignmentID: existingTask.canvasAssignmentID
+                canvasAssignmentID: existingTask.canvasAssignmentID,
+                completedAt: existingTask.completedAt
             ))
         } else {
             manager.addTask(title: title, dueDate: resolvedDueDate, priority: priority)

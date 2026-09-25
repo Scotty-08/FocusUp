@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "summary": true,
+  "problems": [
+    {"severity": "warning", "kind": "artboard-without-style", "file": "scene.rml", "line": 2, "message": "Artboard has no <LayoutComponentStyle> child linked by styleId; add one and point styleId at it, or nothing inside it can lay out in the editor"}
+  ],
+  "artboards": [
+    {"name": "Capybara", "objects": 210, "types": {"AnimationState": 3, "AnyState": 2, "Artboard": 1, "CubicEaseInterpolator": 2, "Ellipse": 20, "EntryState": 2, "ExitState": 2, "Fill": 36, "KeyFrameDouble": 14, "KeyedObject": 3, "KeyedProperty": 4, "LinearAnimation": 3, "ListenerTriggerChange": 1, "Node": 16, "Rectangle": 16, "Shape": 36, "SolidColor": 36, "Solo": 3, "StateMachine": 1, "StateMachineLayer": 2, "StateMachineListenerSingle": 1, "StateMachineTrigger": 1, "StateTransition": 4, "TransitionTriggerCondition": 1}}
+  ],
+  "roots": {"objects": 1, "types": {"Backboard": 1}}
+}

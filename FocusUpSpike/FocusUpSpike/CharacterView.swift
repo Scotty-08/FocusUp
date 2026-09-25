@@ -1,19 +1,32 @@
 import SwiftUI
 
-/// The Player screen: the pixel avatar, level + EXP progress, the coin
-/// balance, and an upgrade shop where coins buy avatar cosmetics. EXP
-/// only drives the level (never spent); coins are the spendable side --
+/// The Player screen: the animated companion, level + EXP progress, the
+/// coin balance, the companion picker, and the upgrade shop.
+///
+/// EXP only drives the level (never spent); coins are the spendable side --
 /// both are earned by clearing quests (see CharacterStore.rewardQuest).
-/// Codedex-inspired (pixel avatar customization + an XP/level loop),
-/// kept in FocusUp's own dark cyan/steel/ember system rather than
-/// Codedex's bright palette.
+/// Companions unlock by level or cost coins (CompanionCatalog); cosmetics
+/// (eyes, cloak, boots, extras) cost coins and fit every companion.
+/// Tapping something you'd buy previews it on the companion first.
 struct CharacterView: View {
     @ObservedObject private var character = CharacterStore.shared
     @State private var isRenaming = false
     @State private var renameText = ""
-    @State private var shopSlot: AvatarSlot = .robe
+    @State private var shopSlot: AvatarSlot = .eyes
     @State private var pendingPurchase: AvatarItem?
+    @State private var pendingCompanion: CompanionSpecies?
     @State private var shopMessage: String?
+    @State private var companionMessage: String?
+
+    private var currentSpecies: CompanionSpecies { CompanionCatalog.species(character.avatar.species) }
+
+    /// What the big companion shows: a try-on while a purchase is being
+    /// confirmed, otherwise what's equipped.
+    private var shownConfig: AvatarConfig {
+        if let item = pendingPurchase { return character.avatar.setting(item.id, for: item.slot) }
+        if let species = pendingCompanion { return character.avatar.withSpecies(species.id) }
+        return character.avatar
+    }
 
     var body: some View {
         ZStack {
@@ -22,6 +35,10 @@ struct CharacterView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     header
                     avatarSection
+                    companionsSection
+                    if currentSpecies.isHuman {
+                        lookSection
+                    }
                     upgradesSection
                 }
                 .padding(20)
@@ -49,8 +66,27 @@ struct CharacterView: View {
                 shopMessage = nil
             }
             Button("Cancel", role: .cancel) {}
-        } message: { item in
+        } message: { _ in
             Text("You have \(character.coins) coins. It equips right away.")
+        }
+        .confirmationDialog(
+            pendingCompanion.map { "Unlock the \($0.name)?" } ?? "",
+            isPresented: Binding(
+                get: { pendingCompanion != nil },
+                set: { if !$0 { pendingCompanion = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: pendingCompanion
+        ) { species in
+            if case .coins(let price) = species.unlock {
+                Button("Unlock for \(price) coins") {
+                    character.buy(species)
+                    companionMessage = nil
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { _ in
+            Text("You have \(character.coins) coins. Your eyes, cloak, boots and extras come with you.")
         }
     }
 
@@ -72,18 +108,12 @@ struct CharacterView: View {
         VStack(spacing: 12) {
             ZStack {
                 Circle()
-                    .fill(RadialGradient(colors: [PlayerTheme.cyan.opacity(0.18), .clear], center: .center, startRadius: 0, endRadius: 110))
-                    .frame(width: 210, height: 210)
-                FireAura(diameter: 190)
-                PixelAvatarView(config: character.avatar)
-                    .frame(width: 118, height: 131)
-                    .padding(24)
-                    .background(Color(red: 0x0B / 255, green: 0x16 / 255, blue: 0x20 / 255))
-                    .clipShape(PixelFrameShape(cut: 14))
-                    .overlay(PixelFrameShape(cut: 14).stroke(PlayerTheme.cyan, lineWidth: 3))
-                    .shadow(color: PlayerTheme.cyan.opacity(0.25), radius: 14)
+                    .fill(RadialGradient(colors: [PlayerTheme.cyan.opacity(0.18), .clear], center: .center, startRadius: 0, endRadius: 130))
+                    .frame(width: 250, height: 250)
+                CompanionAvatarView(config: shownConfig)
+                    .frame(width: 214, height: 246)
             }
-            .frame(width: 190, height: 190)
+            .frame(width: 250, height: 250)
 
             HStack(spacing: 8) {
                 Text(character.name)
@@ -126,6 +156,150 @@ struct CharacterView: View {
         .frame(maxWidth: .infinity)
     }
 
+    // MARK: - Companions
+
+    private var companionsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                HUDLabel(text: "Companions")
+                Spacer()
+                let unlocked = CompanionCatalog.all.filter { character.isUnlocked($0) }.count
+                Text("\(unlocked) / \(CompanionCatalog.all.count) UNLOCKED")
+                    .font(.system(size: 9, weight: .heavy))
+                    .tracking(0.6)
+                    .foregroundStyle(PlayerTheme.textMuted)
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 10) {
+                    ForEach(CompanionCatalog.all) { species in
+                        companionCard(species)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+
+            if let companionMessage {
+                Text(companionMessage)
+                    .font(.system(size: 11))
+                    .foregroundStyle(PlayerTheme.emberOrange)
+            }
+        }
+    }
+
+    private func companionCard(_ species: CompanionSpecies) -> some View {
+        let unlocked = character.isUnlocked(species)
+        let equipped = character.avatar.species == species.id
+        let label = species.isHuman ? (species.id == "human.female" ? "Human F" : "Human M") : species.name
+        return Button {
+            tapCompanion(species)
+        } label: {
+            VStack(spacing: 6) {
+                ZStack {
+                    Image(CompanionCatalog.portraitName(species: species, skin: character.avatar.skin,
+                                                        cloakItemID: character.avatar.cloak))
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 64, height: 64)
+                        .saturation(unlocked ? 1 : 0)
+                        .opacity(unlocked ? 1 : 0.4)
+                    if !unlocked {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(PlayerTheme.textPrimary.opacity(0.85))
+                    }
+                }
+                Text(label)
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(PlayerTheme.textPrimary)
+                    .lineLimit(1)
+                Group {
+                    if equipped {
+                        Text("EQUIPPED").foregroundStyle(PlayerTheme.cyan)
+                    } else if unlocked {
+                        Text("EQUIP").foregroundStyle(PlayerTheme.textMuted)
+                    } else {
+                        switch species.unlock {
+                        case .level(let needed):
+                            Text("LV \(needed)").foregroundStyle(PlayerTheme.cyan.opacity(0.8))
+                        case .coins(let price):
+                            Text("\(price)").foregroundStyle(character.coins >= price ? PlayerTheme.gold : PlayerTheme.textMuted)
+                        case .starter:
+                            Text("")
+                        }
+                    }
+                }
+                .font(.system(size: 9, weight: .heavy))
+            }
+            .frame(width: 84)
+            .padding(.vertical, 8)
+            .hudPanel(
+                borderColor: equipped ? PlayerTheme.cyanDim : Color.white.opacity(0.06),
+                cornerAccent: equipped ? PlayerTheme.cyan : .clear
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(label)\(equipped ? ", equipped" : unlocked ? ", unlocked" : ", locked")")
+    }
+
+    private func tapCompanion(_ species: CompanionSpecies) {
+        companionMessage = nil
+        if character.isUnlocked(species) {
+            character.selectSpecies(species)
+            return
+        }
+        switch species.unlock {
+        case .level(let needed):
+            companionMessage = "The \(species.name) unlocks at level \(needed) -- you're level \(character.level). Clear quests to level up."
+        case .coins(let price):
+            if character.coins >= price {
+                pendingCompanion = species
+            } else {
+                companionMessage = "The \(species.name) costs \(price) coins -- you need \(price - character.coins) more. Clear quests to earn them."
+            }
+        case .starter:
+            break
+        }
+    }
+
+    // MARK: - Human look
+
+    private var lookSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HUDLabel(text: "Look")
+            swatchRow(title: "Skin", colors: CompanionCatalog.skinTones.map { $0.color },
+                      names: CompanionCatalog.skinTones.map { $0.name }, selected: character.avatar.skin) {
+                character.setSkin($0)
+            }
+            swatchRow(title: "Hair", colors: CompanionCatalog.hairColors.map { $0.color },
+                      names: CompanionCatalog.hairColors.map { $0.name }, selected: character.avatar.hair) {
+                character.setHair($0)
+            }
+        }
+    }
+
+    private func swatchRow(title: String, colors: [Color], names: [String], selected: Int,
+                           pick: @escaping (Int) -> Void) -> some View {
+        HStack(spacing: 10) {
+            Text(title.uppercased())
+                .font(.system(size: 9, weight: .heavy))
+                .tracking(0.6)
+                .foregroundStyle(PlayerTheme.textMuted)
+                .frame(width: 38, alignment: .leading)
+            ForEach(colors.indices, id: \.self) { i in
+                Button { pick(i) } label: {
+                    Circle()
+                        .fill(colors[i])
+                        .frame(width: 30, height: 30)
+                        .overlay(Circle().stroke(i == selected ? PlayerTheme.cyan : Color.white.opacity(0.15),
+                                                 lineWidth: i == selected ? 3 : 1))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(names[i]) \(title.lowercased())\(i == selected ? ", selected" : "")")
+            }
+        }
+    }
+
     // MARK: - Upgrade shop
 
     private var upgradesSection: some View {
@@ -133,7 +307,7 @@ struct CharacterView: View {
             HUDLabel(text: "Upgrades")
 
             HStack(spacing: 6) {
-                ForEach(AvatarSlot.allCases, id: \.self) { slot in
+                ForEach(AvatarSlot.companionSlots, id: \.self) { slot in
                     slotTab(slot)
                 }
             }
@@ -150,7 +324,7 @@ struct CharacterView: View {
                     .foregroundStyle(PlayerTheme.emberOrange)
             }
 
-            Text("Clear quests to earn coins and EXP -- a medium quest pays 100 EXP and 20 coins, low pays half and high pays 1.5x. EXP raises your level; coins buy upgrades.")
+            Text("Clear quests to earn coins and EXP -- a medium quest pays 100 EXP and 20 coins, low pays half and high pays 1.5x. EXP raises your level and unlocks companions; coins buy upgrades and the rarer companions. Everything you buy fits every companion.")
                 .font(.system(size: 10))
                 .foregroundStyle(PlayerTheme.textMuted)
         }
@@ -182,14 +356,12 @@ struct CharacterView: View {
             tap(item)
         } label: {
             VStack(spacing: 6) {
-                AvatarSwatch(
-                    config: character.avatar.setting(item.id, for: item.slot),
-                    selected: equipped,
-                    dimmed: !owned && !affordable
-                )
+                ItemIcon(item: item, selected: equipped, dimmed: !owned && !affordable)
                 Text(item.name)
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(PlayerTheme.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                 if equipped {
                     Text("EQUIPPED")
                         .font(.system(size: 9, weight: .heavy))
@@ -224,6 +396,32 @@ struct CharacterView: View {
         } else {
             shopMessage = "Not enough coins for \(item.name) -- you need \(item.cost - character.coins) more. Clear quests to earn them."
         }
+    }
+}
+
+/// A shop item's icon on a dark framed tile.
+struct ItemIcon: View {
+    let item: AvatarItem
+    var selected = false
+    var dimmed = false
+
+    var body: some View {
+        Group {
+            if let icon = item.iconName {
+                Image(icon).resizable().scaledToFit()
+            } else {
+                Circle().fill(item.color ?? PlayerTheme.cyan).padding(12)
+            }
+        }
+        .frame(width: 50, height: 50)
+        .padding(6)
+        .background(Color(red: 0x0B / 255, green: 0x16 / 255, blue: 0x20 / 255))
+        .clipShape(PixelFrameShape(cut: 6))
+        .overlay(
+            PixelFrameShape(cut: 6)
+                .stroke(selected ? PlayerTheme.cyan : PlayerTheme.cyanDim, lineWidth: selected ? 2 : 1)
+        )
+        .opacity(dimmed ? 0.45 : 1)
     }
 }
 

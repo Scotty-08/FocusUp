@@ -124,35 +124,25 @@ final class FamilyControlsManager: ObservableObject {
 
     /// "Abandon Quest" -- MostPressingQuestView only offers this (in
     /// place of "Not yet") for a quest that came in from Canvas, as the
-    /// alternative to "Yes, submit to Canvas." Unlike "Not yet" (which
-    /// just closes the prompt and leaves the quest untouched), this
-    /// removes the quest entirely and records it the same way a
-    /// shield's own "give up" button does (StatsStore.recordIgnore --
-    /// breaks the streak). Since the user is choosing to walk away
-    /// rather than come back to it, whatever's currently blocking them
-    /// is released too, same as a completion would: every Block group
-    /// unshields (GroupStore.unshieldAllBlockGroups), and any Limit
-    /// group mid-check-in releases its token and starts its own
-    /// cooldown (GroupCooldown) so the next check-in is
-    /// `reshieldMinutes` away instead of immediate -- mirroring what
-    /// ShieldActionExtension.handleLimit's default dismiss branch does,
-    /// just triggered from inside the app instead of from the shield.
+    /// alternative to "Yes, submit to Canvas." The quest itself is left
+    /// exactly as it was (still open, still in the Quest Log -- same as
+    /// "Not yet") -- this is NOT a delete. What it does do: breaks the
+    /// streak, recorded the same way a shield's own "give up" button is
+    /// (StatsStore.recordIgnore), and sends the user back into the app
+    /// by releasing whatever's currently blocking them, same as a
+    /// completion would: every Block group unshields
+    /// (GroupStore.unshieldAllBlockGroups), and any Limit group
+    /// mid-check-in releases its token and starts its own cooldown
+    /// (GroupCooldown) so the next check-in is `reshieldMinutes` away
+    /// instead of immediate -- mirroring what ShieldActionExtension.
+    /// handleLimit's default dismiss branch does, just triggered from
+    /// inside the app instead of from the shield.
     func abandonPressingQuestPrompt() {
-        guard let task = pressingQuestPrompt else { return }
-        deleteTasks(withIDs: [task.id])
+        guard pressingQuestPrompt != nil else { return }
         StatsStore.recordIgnore()
         ignoreCount = StatsStore.ignoreCount
         currentStreak = StatsStore.currentStreak
-        GroupStore.unshieldAllBlockGroups()
-        for group in groups where group.rule.kind == .limit && isEnforced(group) {
-            let store = ManagedSettingsStore(named: GroupIdentity.storeName(for: group.id))
-            store.shield.applications = nil
-            GroupRuntimeState.setShieldReason(nil, for: group.id)
-            if group.rule.checkInOnOpen {
-                GroupCooldown.start(for: group)
-            }
-        }
-        refreshGroups()
+        releaseActiveShields()
         pressingQuestPrompt = nil
     }
 
@@ -163,6 +153,43 @@ final class FamilyControlsManager: ObservableObject {
     /// in the foreground.
     func refreshTasks() {
         tasks = TaskStore.loadTasks()
+        purgeClearedQuests()
+    }
+
+    /// How long a checked-off quest stays in the Quest Log before it's
+    /// cleared out automatically.
+    static let clearCompletedAfter: TimeInterval = 24 * 60 * 60
+
+    /// Removes quests that were completed more than `clearCompletedAfter`
+    /// ago. Runs on launch/foreground (refreshTasks) and when the Quest
+    /// Log appears. Completed quests from before completion times were
+    /// recorded get their clock started now rather than vanishing at
+    /// once. Nothing is taken back: EXP, coins, streaks and unlocks were
+    /// all paid out at completion (CharacterStore.rewardQuest keeps its
+    /// own record, so a cleared quest can't be re-rewarded). Cleared
+    /// Canvas quests are remembered so a sync doesn't re-add them.
+    func purgeClearedQuests(now: Date = Date()) {
+        var changed = false
+        var clearedCanvasIDs: [Int] = []
+        var kept: [FocusTask] = []
+        for var task in tasks {
+            if task.isCompleted {
+                if task.completedAt == nil {
+                    task.completedAt = now
+                    changed = true
+                }
+                if let done = task.completedAt, now.timeIntervalSince(done) >= Self.clearCompletedAfter {
+                    if let canvasID = task.canvasAssignmentID { clearedCanvasIDs.append(canvasID) }
+                    changed = true
+                    continue
+                }
+            }
+            kept.append(task)
+        }
+        guard changed else { return }
+        if !clearedCanvasIDs.isEmpty { TaskStore.markCanvasAssignmentsCleared(clearedCanvasIDs) }
+        tasks = kept
+        TaskStore.saveTasks(kept)
     }
 
     func addTask(title: String, dueDate: Date? = nil, priority: TaskPriority = .medium) {
@@ -205,12 +232,13 @@ final class FamilyControlsManager: ObservableObject {
     /// about a quest they may have already been working from.
     func mergeCanvasAssignments(_ assignments: [CanvasAssignment]) {
         var updated = tasks
+        let cleared = TaskStore.clearedCanvasAssignmentIDs()
         for assignment in assignments {
             if let idx = updated.firstIndex(where: { $0.canvasAssignmentID == assignment.id }) {
                 updated[idx].title = assignment.name
                 updated[idx].dueDate = assignment.dueAt
                 updated[idx].canvasURL = assignment.htmlUrl
-            } else {
+            } else if !cleared.contains(assignment.id) {
                 updated.append(FocusTask(
                     title: assignment.name,
                     dueDate: assignment.dueAt,
@@ -230,9 +258,23 @@ final class FamilyControlsManager: ObservableObject {
     /// GroupStore.unshieldAllBlockGroups's doc comment for why this is
     /// an event, not a "quest list is empty" state check, and why that
     /// distinction is what keeps blocking meaningful with zero quests.
+    /// ALSO releases any Limit group that's mid-check-in right now (see
+    /// releaseActiveShields) -- without that, completing a quest via
+    /// "Open Quests" -> MostPressingQuestView after a Limit reminder's
+    /// primary button routed here (ShieldActionExtension.handleLimit's
+    /// `.limitReminder` + open-quests branch, which deliberately leaves
+    /// that shield's token untouched since the user is leaving the app
+    /// to check in) left the reminder shielded forever -- nothing else
+    /// was ever going to clear it, since a normal shield tap is the
+    /// ONLY other place that token gets released. Found via Scotty
+    /// testing the Canvas check-in flow: completing the quest cleared
+    /// it from the shield's own "most pressing" pick (so reopening the
+    /// blocked app showed a different quest) while the blocker itself
+    /// stayed up -- this is the fix.
     func toggleTaskCompletion(_ task: FocusTask) {
         guard let idx = tasks.firstIndex(where: { $0.id == task.id }) else { return }
         tasks[idx].isCompleted.toggle()
+        tasks[idx].completedAt = tasks[idx].isCompleted ? Date() : nil
         TaskStore.saveTasks(tasks)
         if tasks[idx].isCompleted {
             StatsStore.recordCompleted(questTitle: task.title)
@@ -240,9 +282,35 @@ final class FamilyControlsManager: ObservableObject {
             // celebration screen it triggers first renders.
             justEarned = CharacterStore.shared.rewardQuest(tasks[idx])
             refreshStats()
-            GroupStore.unshieldAllBlockGroups()
-            refreshGroups()
+            releaseActiveShields()
         }
+    }
+
+    /// Shared by toggleTaskCompletion and abandonPressingQuestPrompt:
+    /// releases whatever's actively blocking the user right now. Every
+    /// Block-rule group unconditionally unshields (completing/abandoning
+    /// ANY quest unlocks blocking, uniformly -- see toggleTaskCompletion's
+    /// doc comment), and any Limit-rule group currently mid-check-in
+    /// (isEnforced -- its while-you-use-it reminder or first-open
+    /// check-in shield is up right now) has its token released too, with
+    /// a cooldown (GroupCooldown) started if it has check-in-on-open, so
+    /// the next check-in is `reshieldMinutes` away instead of immediate.
+    /// This mirrors exactly what ShieldActionExtension.handleLimit's
+    /// default dismiss branch does when the user taps through the shield
+    /// directly -- same release, just triggered from inside the app once
+    /// a quest resolves via MostPressingQuestView instead of from the
+    /// shield itself.
+    private func releaseActiveShields() {
+        GroupStore.unshieldAllBlockGroups()
+        for group in groups where group.rule.kind == .limit && isEnforced(group) {
+            let store = ManagedSettingsStore(named: GroupIdentity.storeName(for: group.id))
+            store.shield.applications = nil
+            GroupRuntimeState.setShieldReason(nil, for: group.id)
+            if group.rule.checkInOnOpen {
+                GroupCooldown.start(for: group)
+            }
+        }
+        refreshGroups()
     }
 
     // MARK: - Groups

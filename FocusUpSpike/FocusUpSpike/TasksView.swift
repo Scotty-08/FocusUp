@@ -25,6 +25,15 @@ struct TasksView: View {
         }
     }
 
+    /// " · GONE IN 5H" -- finished quests clear out of the log on their
+    /// own (FamilyControlsManager.purgeClearedQuests).
+    private func removalHint(_ task: FocusTask) -> String {
+        guard let done = task.completedAt else { return "" }
+        let remaining = FamilyControlsManager.clearCompletedAfter - Date().timeIntervalSince(done)
+        let hours = Int((remaining / 3600).rounded(.up))
+        return hours > 1 ? " · GONE IN \(hours)H" : " · GONE SOON"
+    }
+
     var body: some View {
         ZStack {
             PlayerBackground(topRight: false)
@@ -122,11 +131,11 @@ struct TasksView: View {
                     .foregroundStyle(task.isCompleted ? PlayerTheme.textMuted : PlayerTheme.textPrimary)
                     .strikethrough(task.isCompleted)
                 if let due = task.dueDate {
-                    Text("DEADLINE \(due.formatted(date: .abbreviated, time: .omitted).uppercased())\(task.isCompleted ? " · CLEARED" : "")")
+                    Text("DEADLINE \(due.formatted(date: .abbreviated, time: .omitted).uppercased())\(task.isCompleted ? " · CLEARED\(removalHint(task))" : "")")
                         .font(.system(size: 10))
                         .foregroundStyle(isPastDue(due) && !task.isCompleted ? PlayerTheme.danger : PlayerTheme.textMuted)
                 } else {
-                    Text(task.isCompleted ? "NO DEADLINE · CLEARED" : "NO DEADLINE")
+                    Text(task.isCompleted ? "NO DEADLINE · CLEARED\(removalHint(task))" : "NO DEADLINE")
                         .font(.system(size: 10))
                         .foregroundStyle(PlayerTheme.textMuted)
                 }

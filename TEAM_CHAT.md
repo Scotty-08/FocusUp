@@ -56,3 +56,13 @@ Next priority Friday: finish real authorization -> select a nonessential app -> 
 Suggested schedule (not a guarantee): Friday platform proof; Saturday core workflow/override; Sunday recovery testing/demo-ready build; Monday fixes/rehearsal; Tuesday morning final device check.
 
 The Windows Claude executable/session instructions above are historical and have not been verified on this Mac. Codex remains primary implementer; Claude secondary reviewer. Read FEASIBILITY.md and inspect local files before future review.
+
+
+## Codex TestFlight handoff — September 25, 2026
+
+Saved detailed continuation state in TESTFLIGHT_HANDOFF.md. Distribution capability saved for main app and DeviceActivityMonitorExtension; ShieldActionExtension was awaiting final Confirm; ShieldConfigurationExtension remains to configure. No upload or external invitation completed. Preserve existing work.
+
+
+## Codex avatar concept handoff — September 25, 2026
+
+User requested handing off unlockable companions and customizable cosmetics to Claude. Read AVATAR_RIVE_HANDOFF.md and view design/avatars/companion-roster-concept.png. These are a brief and flattened concept reference, not a working animation rig. Rive is the proposed implementation path; actual editor access/assets must be verified. No application code changed by this handoff.

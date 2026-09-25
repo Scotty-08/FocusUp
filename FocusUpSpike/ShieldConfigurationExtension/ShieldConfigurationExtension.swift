@@ -9,6 +9,25 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
     private let inkDim = UIColor(red: 180/255, green: 184/255, blue: 187/255, alpha: 1)
     private let deadRust = UIColor(red: 146/255, green: 94/255, blue: 79/255, alpha: 1)  // pulled further toward grey -- duller, "deader" rust
 
+    /// Every shield uses the same approved look (the blocker concept): a
+    /// solid near-black background, the Shutter mark, "FocusUp" title,
+    /// context + quest + streak in the subtitle, a cyan primary button with
+    /// dark text, and a quiet secondary button. No `backgroundBlurStyle` --
+    /// the system material blur is what made the shield read as flat grey
+    /// on device instead of near-black. The system still owns the layout,
+    /// fonts and pill-shaped buttons; only colors, text and icon are ours.
+    private func shield(subtitle: String, primary: String, secondary: ShieldConfiguration.Label?) -> ShieldConfiguration {
+        ShieldConfiguration(
+            backgroundColor: bg,
+            icon: FocusUpEmblem.image,
+            title: .init(text: "FocusUp", color: ink),
+            subtitle: .init(text: subtitle, color: inkDim),
+            primaryButtonLabel: .init(text: primary, color: bg),
+            primaryButtonBackgroundColor: cyan,
+            secondaryButtonLabel: secondary
+        )
+    }
+
     /// Small filled/outline dot row, e.g. "●●●○○" for a 3-quest streak,
     /// capped visually at 5. Same "progress at a glance" visual language
     /// ScreenZen uses for its per-app check counter -- repurposed here
@@ -80,16 +99,9 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
         } else {
             headline = "No quests yet -- add one and complete it to unlock."
         }
-        return ShieldConfiguration(
-            backgroundBlurStyle: .systemMaterialDark,
-            backgroundColor: bg,
-            icon: FocusUpEmblem.image,
-            title: .init(text: "FocusUp", color: ink),
-            subtitle: .init(text: "\(headline)\n\(streakLine)", color: inkDim),
-            primaryButtonLabel: .init(text: "Open Quests", color: bg),
-            primaryButtonBackgroundColor: cyan,
-            secondaryButtonLabel: .init(text: "Give up", color: deadRust)
-        )
+        return shield(subtitle: "\(headline)\n\(streakLine)",
+                      primary: "Open Quests",
+                      secondary: .init(text: "Give up", color: deadRust))
     }
 
     /// A dismissable nudge, not a lockout. When there's an open quest,
@@ -106,31 +118,24 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
     /// that exact same quest, so the shield and the check-in always
     /// agree on which one is "the" quest right now.
     private func reminderShield(group: AppGroup) -> ShieldConfiguration {
+        // Same shape as the block shield (context line, quest, streak) so
+        // every shield reads the same; the buttons carry the "check in or
+        // keep going" choice instead of a long sentence.
         let headline: String
         let primaryLabel: String
-        let actionHint: String
         if let task = pressingQuest {
-            headline = "Still on \u{201C}\(task.title)\u{201D}?"
+            headline = "Still on this quest?\n\(task.title)"
             primaryLabel = "Open Quests"
-            actionHint = "Open Quests to check in, or Dismiss to keep going into \(group.name)."
         } else {
             // No quests at all to remind about -- ask the reflective
             // question instead of just saying nothing to check on. The
             // nudge should still make you pause even with nothing open.
-            headline = "Why am I checking this?"
+            headline = "Why am I opening \(group.name)?"
             primaryLabel = "Continue"
-            actionHint = "Tap Continue to keep using \(group.name)."
         }
-        return ShieldConfiguration(
-            backgroundBlurStyle: .systemMaterialDark,
-            backgroundColor: bg,
-            icon: FocusUpEmblem.image,
-            title: .init(text: "FocusUp", color: ink),
-            subtitle: .init(text: "\(headline)\n\(actionHint)", color: inkDim),
-            primaryButtonLabel: .init(text: primaryLabel, color: bg),
-            primaryButtonBackgroundColor: cyan,
-            secondaryButtonLabel: .init(text: "Dismiss", color: inkDim)
-        )
+        return shield(subtitle: "\(headline)\n\(streakLine)",
+                      primary: primaryLabel,
+                      secondary: .init(text: "Dismiss", color: inkDim))
     }
 
     /// The daily budget is used up -- neither shield button releases
@@ -141,29 +146,15 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
     /// the assumption it renders as a single-button shield, not a
     /// mislabeled one.
     private func lockoutShield(group: AppGroup) -> ShieldConfiguration {
-        ShieldConfiguration(
-            backgroundBlurStyle: .systemMaterialDark,
-            backgroundColor: bg,
-            icon: FocusUpEmblem.image,
-            title: .init(text: "FocusUp", color: ink),
-            subtitle: .init(text: "Daily limit reached for \(group.name).\nIt unlocks again with tomorrow's budget (or its free window, if it has one).", color: inkDim),
-            primaryButtonLabel: .init(text: "Got it", color: bg),
-            primaryButtonBackgroundColor: deadRust,
-            secondaryButtonLabel: nil
-        )
+        shield(subtitle: "Daily limit reached for \(group.name).\nIt unlocks with tomorrow's budget or its free window.\n\(streakLine)",
+               primary: "Got it",
+               secondary: nil)
     }
 
     private func defaultShield() -> ShieldConfiguration {
-        ShieldConfiguration(
-            backgroundBlurStyle: .systemMaterialDark,
-            backgroundColor: bg,
-            icon: FocusUpEmblem.image,
-            title: .init(text: "FocusUp", color: ink),
-            subtitle: .init(text: "Your quest comes first.\n\(streakLine)", color: inkDim),
-            primaryButtonLabel: .init(text: "Open Quests", color: bg),
-            primaryButtonBackgroundColor: cyan,
-            secondaryButtonLabel: .init(text: "Give up", color: deadRust)
-        )
+        shield(subtitle: "Your quest comes first.\n\(streakLine)",
+               primary: "Open Quests",
+               secondary: .init(text: "Give up", color: deadRust))
     }
 
     override func configuration(shielding application: Application) -> ShieldConfiguration {

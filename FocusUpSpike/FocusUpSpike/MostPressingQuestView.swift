@@ -17,12 +17,14 @@ import SwiftUI
 /// A quest imported from Canvas (task.canvasURL != nil) swaps both
 /// buttons for a Canvas-specific pair: "Yes, submit to Canvas" opens
 /// the assignment's own Canvas page AND checks the quest off in one tap
-/// (no separate "now go check it off" step), and "Abandon Quest" -- not
-/// "Not yet" -- lets the user bail on it entirely rather than get
-/// re-prompted for something they've decided not to do; see
-/// FamilyControlsManager.abandonPressingQuestPrompt for what that does
-/// to the quest and the blocker. A user-typed quest keeps the original
-/// "Yes, completed it" / "Not yet" pair, which never removes anything.
+/// (no separate "now go check it off" step), and the red "Abandon
+/// Quest" -- not "Not yet" -- sends the user back into the app,
+/// releasing whatever's blocking them the same way a completion would,
+/// and breaks the streak; despite its name it does NOT delete the
+/// quest -- it's left open, same as "Not yet" would leave it. See
+/// FamilyControlsManager.abandonPressingQuestPrompt for the exact
+/// effect. A user-typed quest keeps the original "Yes, completed it" /
+/// "Not yet" pair, which never touches the streak.
 struct MostPressingQuestView: View {
     let task: FocusTask
     var onCompleted: () -> Void
@@ -113,7 +115,7 @@ struct MostPressingQuestView: View {
                     } label: {
                         Text(isCanvasQuest ? "Abandon Quest" : "Not yet")
                             .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(PlayerTheme.textMuted)
+                            .foregroundStyle(isCanvasQuest ? PlayerTheme.danger : PlayerTheme.textMuted)
                             .frame(height: 40)
                     }
                     .buttonStyle(.plain)
