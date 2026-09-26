@@ -189,10 +189,84 @@ final class BackendClient: ObservableObject {
         try await authenticate(path: "/auth/v1/token", grantType: "password", body: ["email": email, "password": password])
     }
 
+    /// Where the confirmation email's link sends people once Supabase has
+    /// verified the address: straight back into this app, carrying a
+    /// session. Must be listed under Supabase -> Authentication -> URL
+    /// Configuration -> Redirect URLs, or Supabase falls back to the
+    /// project's Site URL (which is what used to open "localhost").
+    static let emailConfirmRedirect = "focusup://auth/confirmed"
+
     /// Throws `.confirmationRequired` if the project has "Confirm email"
     /// turned on (no session is issued until the link is clicked).
     func signUp(email: String, password: String) async throws {
-        try await authenticate(path: "/auth/v1/signup", grantType: nil, body: ["email": email, "password": password])
+        try await authenticate(
+            path: "/auth/v1/signup", grantType: nil,
+            extraQuery: [URLQueryItem(name: "redirect_to", value: Self.emailConfirmRedirect)],
+            body: ["email": email, "password": password]
+        )
+    }
+
+    /// Sends the confirmation email again (for anyone whose earlier link
+    /// was the dead localhost one, or who lost the email).
+    func resendConfirmation(email: String) async throws {
+        _ = try await send(
+            method: "POST", path: "/auth/v1/resend",
+            query: [URLQueryItem(name: "redirect_to", value: Self.emailConfirmRedirect)],
+            body: try JSONSerialization.data(withJSONObject: ["type": "signup", "email": email]),
+            authorized: false
+        )
+    }
+
+    /// The account a confirmation link signed in, before it is adopted.
+    struct EmailLinkAccount {
+        let session: BackendSession
+        let email: String?
+    }
+
+    /// Reads the session Supabase puts in the link's fragment:
+    /// focusup://auth/confirmed#access_token=...&refresh_token=...&expires_in=...
+    /// (or #error=...&error_description=... when the link is stale).
+    /// Returns nil for URLs that aren't auth links.
+    nonisolated static func emailLinkAccount(from url: URL) throws -> EmailLinkAccount? {
+        guard url.scheme?.lowercased() == "focusup", url.host?.lowercased() == "auth" else { return nil }
+        let raw = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let encoded = raw?.percentEncodedFragment ?? raw?.percentEncodedQuery ?? ""
+        var values: [String: String] = [:]
+        for item in URLComponents(string: "focusup://auth?" + encoded)?.queryItems ?? [] { values[item.name] = item.value ?? "" }
+
+        if let problem = values["error_description"] ?? values["error"] {
+            let text = problem.replacingOccurrences(of: "+", with: " ")
+            throw BackendError.server(status: 400, message: "That link didn't work (\(text)). Sign in below, or send a new confirmation email.")
+        }
+        guard let access = values["access_token"], let refresh = values["refresh_token"],
+              let claims = jwtClaims(access),
+              let sub = claims["sub"] as? String, let userID = UUID(uuidString: sub) else {
+            throw BackendError.invalidResponse
+        }
+        let lifetime = values["expires_in"].flatMap(Double.init) ?? 3600
+        let session = BackendSession(accessToken: access, refreshToken: refresh, userID: userID,
+                                     expiresAt: Date().addingTimeInterval(lifetime))
+        return EmailLinkAccount(session: session, email: claims["email"] as? String)
+    }
+
+    /// Decodes (does not verify) a JWT's payload. Only used to learn which
+    /// user a token the server just issued belongs to; the server checks
+    /// the signature on every request.
+    nonisolated private static func jwtClaims(_ token: String) -> [String: Any]? {
+        let pieces = token.split(separator: ".")
+        guard pieces.count >= 2 else { return nil }
+        var base64 = String(pieces[1]).replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
+        while base64.count % 4 != 0 { base64 += "=" }
+        guard let data = Data(base64Encoded: base64) else { return nil }
+        return try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    }
+
+    func adopt(_ newSession: BackendSession) {
+        session = newSession
+        lastConnectError = nil
+        if let json = try? JSONEncoder().encode(newSession), let string = String(data: json, encoding: .utf8) {
+            Keychain.set(string, for: Self.sessionKey)
+        }
     }
 
     func signOut() {
@@ -208,8 +282,8 @@ final class BackendClient: ObservableObject {
         let user: AuthUser?
     }
 
-    private func authenticate(path: String, grantType: String?, body: [String: String]) async throws {
-        let query = grantType.map { [URLQueryItem(name: "grant_type", value: $0)] } ?? []
+    private func authenticate(path: String, grantType: String?, extraQuery: [URLQueryItem] = [], body: [String: String]) async throws {
+        let query = (grantType.map { [URLQueryItem(name: "grant_type", value: $0)] } ?? []) + extraQuery
         do {
             let data = try await send(
                 method: "POST", path: path, query: query,
@@ -238,10 +312,7 @@ final class BackendClient: ObservableObject {
             userID: userID,
             expiresAt: Date().addingTimeInterval(response.expiresIn ?? 3600)
         )
-        session = newSession
-        if let json = try? JSONEncoder().encode(newSession), let string = String(data: json, encoding: .utf8) {
-            Keychain.set(string, for: Self.sessionKey)
-        }
+        adopt(newSession)
     }
 
     /// Only a definitive rejection from the server (bad/expired refresh

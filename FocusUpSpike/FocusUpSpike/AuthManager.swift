@@ -17,15 +17,17 @@ final class AuthManager: ObservableObject {
     @Published var isSignedIn: Bool
     @Published var displayName: String?
     @Published var signInMethod: String?
+    /// A message for the sign-in screen about an email link the app was
+    /// opened with (e.g. an expired confirmation link). nil = nothing to say.
+    @Published var authNotice: String?
 
     /// Gates the guided first-run setup flow (OnboardingView): permission
-    /// requests, then username + date of birth, then the Level 1 reveal.
+    /// requests, then the player name and look, then the Level 1 reveal.
     /// Separate from isSignedIn on purpose -- signing in with a
     /// different method later shouldn't re-trigger onboarding as long as
     /// it was already completed once on this device.
     @Published var hasCompletedOnboarding: Bool
     @Published var username: String?
-    @Published var dateOfBirth: Date?
 
     private let defaults = UserDefaults.standard
     private let signedInKey = "focusUp.isSignedIn"
@@ -33,7 +35,9 @@ final class AuthManager: ObservableObject {
     private let methodKey = "focusUp.signInMethod"
     private let onboardingKey = "focusUp.hasCompletedOnboarding"
     private let usernameKey = "focusUp.username"
-    private let dobKey = "focusUp.dateOfBirth"
+    /// Only used to erase a birthday saved by older builds, which asked
+    /// for one during setup. The app no longer collects it.
+    private let legacyDobKey = "focusUp.dateOfBirth"
     private let identityKey = "focusUp.identity"
     private let onboardedKey = "focusUp.onboardedIdentities"
     /// Stands in for "someone who finished onboarding before per-account
@@ -53,11 +57,7 @@ final class AuthManager: ObservableObject {
         hasCompletedOnboarding = defaults.bool(forKey: onboardingKey)
         username = defaults.string(forKey: usernameKey)
         currentIdentity = defaults.string(forKey: identityKey)
-        if defaults.object(forKey: dobKey) != nil {
-            dateOfBirth = Date(timeIntervalSince1970: defaults.double(forKey: dobKey))
-        } else {
-            dateOfBirth = nil
-        }
+        defaults.removeObject(forKey: legacyDobKey)
     }
 
     private var onboardedIdentities: Set<String> {
@@ -106,14 +106,12 @@ final class AuthManager: ObservableObject {
     /// though that's where the fields are collected. hasCompletedOnboarding
     /// going true is what switches MyApp over to ContentView, so it can't
     /// flip until after the reveal has actually been shown.
-    func completeOnboarding(username: String, dateOfBirth: Date) {
+    func completeOnboarding(username: String) {
         let trimmed = username.trimmingCharacters(in: .whitespacesAndNewlines)
         self.username = trimmed
-        self.dateOfBirth = dateOfBirth
         self.hasCompletedOnboarding = true
         if let currentIdentity { onboardedIdentities.insert(currentIdentity) }
         defaults.set(trimmed, forKey: usernameKey)
-        defaults.set(dateOfBirth.timeIntervalSince1970, forKey: dobKey)
         defaults.set(true, forKey: onboardingKey)
     }
 
@@ -124,6 +122,35 @@ final class AuthManager: ObservableObject {
         hasCompletedOnboarding = true
         defaults.set(true, forKey: onboardingKey)
         if let currentIdentity { onboardedIdentities.insert(currentIdentity) }
+    }
+
+    /// Handles focusup://auth/confirmed#access_token=... -- the link in the
+    /// sign-up confirmation email. Tapping it on the phone opens the app
+    /// already signed in to the new account.
+    func handleIncomingURL(_ url: URL) {
+        let account: BackendClient.EmailLinkAccount
+        do {
+            guard let parsed = try BackendClient.emailLinkAccount(from: url) else { return }
+            account = parsed
+        } catch {
+            if !isSignedIn { authNotice = error.localizedDescription }
+            return
+        }
+        let email = account.email?.lowercased()
+        let identity = email.map { "email:\($0)" } ?? "user:\(account.session.userID.uuidString.lowercased())"
+        // Someone else is already signed in on this phone: don't swap
+        // accounts underneath them.
+        if isSignedIn, currentIdentity != identity { return }
+
+        BackendClient.shared.adopt(account.session)
+        authNotice = nil
+        if !isSignedIn {
+            let shortName = email.map { String($0.split(separator: "@").first ?? Substring($0)) }
+            signIn(method: "email", displayName: shortName, identity: identity)
+        }
+        Task { @MainActor in
+            if await FriendsStore.shared.serverProfileExists() { self.markReturningUser() }
+        }
     }
 
     func signOut() {
@@ -144,12 +171,11 @@ final class AuthManager: ObservableObject {
         signInMethod = nil
         hasCompletedOnboarding = false
         username = nil
-        dateOfBirth = nil
         defaults.removeObject(forKey: signedInKey)
         defaults.removeObject(forKey: nameKey)
         defaults.removeObject(forKey: methodKey)
         defaults.removeObject(forKey: onboardingKey)
         defaults.removeObject(forKey: usernameKey)
-        defaults.removeObject(forKey: dobKey)
+        defaults.removeObject(forKey: legacyDobKey)
     }
 }

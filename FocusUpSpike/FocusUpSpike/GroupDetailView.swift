@@ -199,7 +199,7 @@ struct GroupDetailView: View {
                 if hasDailyLimit {
                     numberField(label: "Daily budget", value: $dailyBudgetMinutes, suffix: "min/day", range: 5...480)
                 } else {
-                    Text("Apps stay accessible with no automatic lockout -- just the reminders (and optional first-open check-in) below.")
+                    Text("Apps stay accessible with no automatic lockout. You just get the reminders (and the optional first-open check-in) below.")
                         .font(.system(size: 10))
                         .foregroundStyle(PlayerTheme.textMuted)
                 }
@@ -224,7 +224,7 @@ struct GroupDetailView: View {
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(PlayerTheme.textMuted)
                 numberField(label: "Remind every", value: $reminderIntervalMinutes, suffix: "min of use", range: 1...60)
-                Text("Always on. A dismissable reminder that pops up while you're using the app -- never a lock, unless the daily limit above runs out.")
+                Text("Always on. A dismissable reminder that pops up while you're using the app. It never locks the app unless the daily limit above runs out.")
                     .font(.system(size: 10))
                     .foregroundStyle(PlayerTheme.textMuted)
             }
@@ -240,7 +240,7 @@ struct GroupDetailView: View {
 
                 if checkInOnOpen {
                     numberField(label: "Check in again after", value: $reshieldMinutes, suffix: "min", range: GroupRule.minReshieldMinutes...480)
-                    Text("Optional. The check-in shows only when you first open the app, never while you're using it -- tap through to get in. After you do, it waits this long before it can check in on your next open. iOS can't tell when you leave an app, so 15 minutes is the shortest wait.")
+                    Text("Optional. The check-in shows only when you first open the app, never while you're using it. Tap through to get in. After you do, it waits this long before it can check in on your next open. iOS can't tell when you leave an app, so 15 minutes is the shortest wait.")
                         .font(.system(size: 10))
                         .foregroundStyle(PlayerTheme.textMuted)
                 }
@@ -291,7 +291,7 @@ struct GroupDetailView: View {
                 .font(.system(size: 10, weight: .bold))
                 .foregroundStyle(PlayerTheme.textMuted)
             Text(hasDailyLimit
-                 ? "No limits, reminders or check-ins during these windows, regardless of the budget above. Outside them, the budget tracks separately in each remaining gap -- more windows means more separately-resetting budgets, not one shared total."
+                 ? "No limits, reminders or check-ins during these windows, regardless of the budget above. Outside them, the budget tracks separately in each remaining gap, so more windows means more budgets that reset separately, not one shared total."
                  : "No reminders or check-ins during these windows. Outside them, the normal reminders apply.")
                 .font(.system(size: 10))
                 .foregroundStyle(PlayerTheme.textMuted)

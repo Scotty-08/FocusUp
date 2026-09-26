@@ -11,10 +11,21 @@ struct AuthView: View {
     @StateObject private var auth = AuthManager.shared
     @State private var email = ""
     @State private var password = ""
+    @State private var confirmPassword = ""
+    @State private var infoText: String?
+    @State private var canResend = false
     @State private var errorText: String?
     @State private var appleNonce = ""
     @State private var isCreatingAccount = false
     @State private var isBusy = false
+
+    private static let minPasswordLength = 8
+
+    /// Sign-up only: the second password box has something in it that
+    /// doesn't match the first.
+    private var passwordsDiffer: Bool {
+        isCreatingAccount && !confirmPassword.isEmpty && confirmPassword != password
+    }
 
     var body: some View {
         ZStack {
@@ -57,21 +68,48 @@ struct AuthView: View {
 
                         VStack(alignment: .leading, spacing: 10) {
                             if !BackendConfig.isConfigured {
-                                Text("Preview only right now -- this build isn't connected to the FocusUp server, so this doesn't create a real account, it just lets you try the flow.")
+                                Text("Preview only right now. This build isn't connected to the FocusUp server, so this doesn't create a real account, it just lets you try the flow.")
                                     .font(.system(size: 10))
                                     .foregroundStyle(PlayerTheme.emberOrange)
                             }
 
-                            hudField(placeholder: "Email or phone number", text: $email, secure: false)
+                            hudField(placeholder: "Email", text: $email, secure: false)
                             hudField(placeholder: "Password", text: $password, secure: true)
+
+                            if isCreatingAccount {
+                                hudField(placeholder: "Confirm password", text: $confirmPassword, secure: true)
+                                if passwordsDiffer {
+                                    Text("Passwords don't match.")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(PlayerTheme.danger)
+                                } else if !password.isEmpty && password.count < Self.minPasswordLength {
+                                    Text("Use at least \(Self.minPasswordLength) characters.")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(PlayerTheme.textMuted)
+                                }
+                            }
 
                             Button {
                                 let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines)
                                 guard !trimmed.isEmpty, !password.isEmpty else {
-                                    errorText = "Enter an email/phone and password."
+                                    errorText = "Enter your email and password."
                                     return
                                 }
+                                if isCreatingAccount {
+                                    guard password.count >= Self.minPasswordLength else {
+                                        errorText = "Your password needs at least \(Self.minPasswordLength) characters."
+                                        return
+                                    }
+                                    guard confirmPassword == password else {
+                                        errorText = confirmPassword.isEmpty
+                                            ? "Type your password a second time to confirm it."
+                                            : "The two passwords don't match."
+                                        return
+                                    }
+                                }
                                 errorText = nil
+                                infoText = nil
+                                auth.authNotice = nil
                                 submitEmail(trimmed)
                             } label: {
                                 Text(isCreatingAccount ? "CREATE ACCOUNT" : "ENTER")
@@ -88,7 +126,9 @@ struct AuthView: View {
 
                             Button {
                                 isCreatingAccount.toggle()
+                                confirmPassword = ""
                                 errorText = nil
+                                infoText = nil
                             } label: {
                                 (Text(isCreatingAccount ? "Already have an account? " : "New here? ").foregroundStyle(PlayerTheme.textMuted)
                                     + Text(isCreatingAccount ? "Sign in" : "Create an account").foregroundStyle(PlayerTheme.cyan))
@@ -98,10 +138,26 @@ struct AuthView: View {
                             .frame(maxWidth: .infinity)
                         }
 
-                        if let errorText {
-                            Text(errorText)
+                        if let infoText {
+                            Text(infoText)
+                                .foregroundStyle(PlayerTheme.cyan)
+                                .font(.footnote)
+                                .multilineTextAlignment(.center)
+                        }
+
+                        if let message = errorText ?? auth.authNotice {
+                            Text(message)
                                 .foregroundStyle(PlayerTheme.danger)
                                 .font(.footnote)
+                                .multilineTextAlignment(.center)
+                        }
+
+                        if canResend || auth.authNotice != nil {
+                            Button("Send the confirmation email again") { resendConfirmation() }
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(PlayerTheme.cyan)
+                                .buttonStyle(.plain)
+                                .disabled(isBusy)
                         }
                     }
                 }
@@ -157,6 +213,33 @@ struct AuthView: View {
                 }
                 auth.signIn(method: "email", displayName: shortName, identity: "email:\(email.lowercased())")
                 await markReturningIfAccountExists()
+            } catch BackendError.confirmationRequired {
+                // The account exists but Supabase wants the address
+                // confirmed first; the email's link reopens the app signed in.
+                infoText = "Almost there! We emailed a link to \(email). Open it on this iPhone and FocusUp will sign you in."
+                canResend = true
+            } catch {
+                errorText = error.localizedDescription
+                canResend = error.localizedDescription.lowercased().contains("not confirmed")
+            }
+        }
+    }
+
+    private func resendConfirmation() {
+        let address = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !address.isEmpty else {
+            errorText = "Enter your email above, then tap resend."
+            return
+        }
+        isBusy = true
+        Task { @MainActor in
+            defer { isBusy = false }
+            do {
+                try await BackendClient.shared.resendConfirmation(email: address)
+                errorText = nil
+                auth.authNotice = nil
+                infoText = "Sent a fresh link to \(address). Open it on this iPhone."
+                canResend = true
             } catch {
                 errorText = error.localizedDescription
             }
@@ -165,19 +248,13 @@ struct AuthView: View {
 
     private var brandMark: some View {
         VStack(spacing: 10) {
-            ZStack {
-                Circle()
-                    .fill(PlayerTheme.panelFill)
-                    .frame(width: 72, height: 72)
-                Circle()
-                    .strokeBorder(PlayerTheme.cyan.opacity(0.75), lineWidth: 1.5)
-                    .frame(width: 72, height: 72)
-                    .shadow(color: PlayerTheme.cyan.opacity(0.45), radius: 10)
-                Image(systemName: "chevron.up")
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundStyle(PlayerTheme.cyan)
-                    .shadow(color: PlayerTheme.cyan.opacity(0.6), radius: 8)
-            }
+            // The Shutter logo (same artwork as the app icon and blockers).
+            Image(uiImage: FocusUpEmblem.image)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 84, height: 84)
+                .shadow(color: PlayerTheme.cyan.opacity(0.35), radius: 12)
+                .accessibilityHidden(true)
 
             HUDLabel(text: "[ System ]", size: 11)
 
@@ -195,6 +272,9 @@ struct AuthView: View {
         Group {
             if secure {
                 SecureField("", text: text, prompt: Text(placeholder).foregroundStyle(PlayerTheme.textMuted))
+                    // .newPassword lets iOS offer one strong password and
+                    // fill both sign-up boxes with it.
+                    .textContentType(isCreatingAccount ? .newPassword : .password)
             } else {
                 TextField("", text: text, prompt: Text(placeholder).foregroundStyle(PlayerTheme.textMuted))
                     .textInputAutocapitalization(.never)

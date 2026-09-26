@@ -19,6 +19,16 @@ function scriptIdFor(origin) {
     return "focusup-canvas-autosync:" + origin;
 }
 
+// With include[]=submission each assignment carries YOUR submission;
+// "upcoming" alone still lists things you've already turned in.
+function isDone(assignment) {
+    const sub = assignment.submission;
+    if (!sub) return false;
+    if (sub.excused) return true;
+    if (sub.submitted_at) return true;
+    return ["submitted", "graded", "pending_review"].includes(sub.workflow_state);
+}
+
 async function fetchCanvasAssignments(origin) {
     try {
         const meRes = await fetch(origin + "/api/v1/users/self", { credentials: "include" });
@@ -38,12 +48,13 @@ async function fetchCanvasAssignments(origin) {
         const assignments = [];
         for (const course of courses) {
             const aRes = await fetch(
-                origin + `/api/v1/courses/${course.id}/assignments?bucket=upcoming&order_by=due_at&per_page=50`,
+                origin + `/api/v1/courses/${course.id}/assignments?bucket=upcoming&order_by=due_at&per_page=50&include[]=submission`,
                 { credentials: "include" }
             );
             if (!aRes.ok) continue;
             const list = await aRes.json();
             for (const a of list) {
+                if (isDone(a)) continue; // already turned in, graded, or excused
                 assignments.push({ id: a.id, name: a.name, due_at: a.due_at, html_url: a.html_url });
             }
         }

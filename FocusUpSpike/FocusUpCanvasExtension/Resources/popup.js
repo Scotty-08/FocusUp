@@ -63,7 +63,7 @@ async function refreshUI() {
         statusEl.className = "success";
     } else if (response?.ok) {
         const n = response.count ?? 0;
-        statusEl.textContent = `Auto-sync is on. Imported ${n} assignment${n === 1 ? "" : "s"} -- new ones will keep importing automatically.`;
+        statusEl.textContent = `Auto-sync is on. Imported ${n} assignment${n === 1 ? "" : "s"}. New ones will keep importing automatically.`;
         statusEl.className = "success";
     } else {
         statusEl.textContent = "Auto-sync is on for this site, but the last import didn't go through. It'll try again next time you're here.";

@@ -69,7 +69,7 @@ struct QuestDetailView: View {
                         .labelsHidden()
                         .colorScheme(.dark)
                 } else {
-                    Text("None -- undated quests rank lowest")
+                    Text("None (undated quests rank lowest)")
                         .font(.system(size: 11))
                         .foregroundStyle(PlayerTheme.textMuted)
                 }

@@ -53,7 +53,7 @@ struct CanvasSettingsView: View {
         VStack(alignment: .leading, spacing: 14) {
             HUDLabel(text: "Import from Canvas")
 
-            Text("FocusUp reads your upcoming assignments straight out of Safari while you're already signed into Canvas -- no school setup, no access token, works at any school.")
+            Text("FocusUp reads your upcoming assignments straight out of Safari while you're already signed into Canvas. No school setup or access token needed, and it works at any school.")
                 .font(.system(size: 12))
                 .foregroundStyle(PlayerTheme.textMuted)
 
@@ -77,7 +77,7 @@ struct CanvasSettingsView: View {
             .padding(14)
             .hudPanel()
 
-            Text("After that, FocusUp updates automatically every time you visit Canvas in Safari -- no more taps needed. Read-only: it only pulls titles, due dates, and a link to each assignment's page, and never submits work or touches a grade. Nothing about your school is hardcoded, so this works the same everywhere.")
+            Text("After that, FocusUp updates automatically every time you visit Canvas in Safari, with no more taps needed. Read-only: it only pulls titles, due dates, and a link to each assignment's page, and never submits work or touches a grade. Nothing about your school is hardcoded, so this works the same everywhere.")
                 .font(.system(size: 10))
                 .foregroundStyle(PlayerTheme.textMuted)
         }
