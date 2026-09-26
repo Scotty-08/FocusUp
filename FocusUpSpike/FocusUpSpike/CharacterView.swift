@@ -17,15 +17,20 @@ struct CharacterView: View {
     @State private var pendingCompanion: CompanionSpecies?
     @State private var shopMessage: String?
     @State private var companionMessage: String?
+    /// A locked companion the player tapped to see what it looks like.
+    /// Only changes the big preview; nothing is equipped or unlocked.
+    @State private var previewSpecies: CompanionSpecies?
 
     private var currentSpecies: CompanionSpecies { CompanionCatalog.species(character.avatar.species) }
 
     /// What the big companion shows: a try-on while a purchase is being
-    /// confirmed, otherwise what's equipped.
+    /// confirmed, a locked companion the player is looking at, otherwise
+    /// what's equipped.
     private var shownConfig: AvatarConfig {
-        if let item = pendingPurchase { return character.avatar.setting(item.id, for: item.slot) }
+        let base = previewSpecies.map { character.avatar.withSpecies($0.id) } ?? character.avatar
+        if let item = pendingPurchase { return base.setting(item.id, for: item.slot) }
         if let species = pendingCompanion { return character.avatar.withSpecies(species.id) }
-        return character.avatar
+        return base
     }
 
     var body: some View {
@@ -45,6 +50,7 @@ struct CharacterView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .onDisappear { previewSpecies = nil }
         .navigationTitle("Player")
         .navigationBarTitleDisplayMode(.inline)
         .alert("Rename Player", isPresented: $isRenaming) {
@@ -82,6 +88,7 @@ struct CharacterView: View {
                 Button("Unlock for \(price) coins") {
                     character.buy(species)
                     companionMessage = nil
+                    previewSpecies = nil
                 }
             }
             Button("Cancel", role: .cancel) {}
@@ -190,6 +197,7 @@ struct CharacterView: View {
     private func companionCard(_ species: CompanionSpecies) -> some View {
         let unlocked = character.isUnlocked(species)
         let equipped = character.avatar.species == species.id
+        let previewing = previewSpecies?.id == species.id
         let label = species.isHuman ? (species.id == "human.female" ? "Human F" : "Human M") : species.name
         return Button {
             tapCompanion(species)
@@ -234,8 +242,8 @@ struct CharacterView: View {
             .frame(width: 84)
             .padding(.vertical, 8)
             .hudPanel(
-                borderColor: equipped ? PlayerTheme.cyanDim : Color.white.opacity(0.06),
-                cornerAccent: equipped ? PlayerTheme.cyan : .clear
+                borderColor: equipped ? PlayerTheme.cyanDim : previewing ? PlayerTheme.gold.opacity(0.5) : Color.white.opacity(0.06),
+                cornerAccent: equipped ? PlayerTheme.cyan : previewing ? PlayerTheme.gold : .clear
             )
         }
         .buttonStyle(.plain)
@@ -245,9 +253,17 @@ struct CharacterView: View {
     private func tapCompanion(_ species: CompanionSpecies) {
         companionMessage = nil
         if character.isUnlocked(species) {
+            previewSpecies = nil
             character.selectSpecies(species)
             return
         }
+        // Locked: show it on the big companion without equipping it.
+        // Tapping the same one again goes back to what's equipped.
+        if previewSpecies?.id == species.id {
+            previewSpecies = nil
+            return
+        }
+        previewSpecies = species
         switch species.unlock {
         case .level(let needed):
             companionMessage = "The \(species.name) unlocks at level \(needed). You're level \(character.level). Clear quests to level up."
