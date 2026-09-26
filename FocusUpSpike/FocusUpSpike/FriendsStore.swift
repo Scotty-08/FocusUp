@@ -161,6 +161,51 @@ final class FriendsStore: ObservableObject {
         return String(handle.prefix(16))
     }
 
+    enum HandleClaim {
+        case claimed(String)
+        case taken(String)
+        /// Not connected to the server (offline, or the account link is
+        /// still finishing). syncProfile claims a handle later instead.
+        case unavailable
+    }
+
+    /// Reserves the friend handle made from the player name during setup,
+    /// so the player finds out right away if someone else has it. Handles
+    /// are unique on the server (profiles_username_key). An account that
+    /// already has a handle keeps it.
+    func claimHandle(forPlayerName name: String) async -> HandleClaim {
+        guard backend.isConnected, let userID = backend.session?.userID else { return .unavailable }
+        if let saved = myUsername { return .claimed(saved) }
+        if let existing: [UsernameOnly] = try? await backend.get(
+            "/rest/v1/profiles",
+            query: [URLQueryItem(name: "id", value: "eq.\(userID.uuidString)"), URLQueryItem(name: "select", value: "username")]
+        ), let saved = existing.first?.username {
+            setUsername(saved)
+            return .claimed(saved)
+        }
+        let handle = Self.sanitizedHandle(name)
+        let character = CharacterStore.shared
+        let row = ProfileRow(
+            id: userID,
+            username: handle,
+            displayName: name,
+            avatar: character.avatar,
+            level: character.level,
+            totalXp: character.totalXP,
+            streak: StatsStore.currentStreak,
+            completedCount: StatsStore.completedCount
+        )
+        do {
+            try await backend.upsert(table: "profiles", row)
+            setUsername(handle)
+            return .claimed(handle)
+        } catch let error as BackendError where error.statusCode == 409 {
+            return .taken(handle)
+        } catch {
+            return .unavailable
+        }
+    }
+
     /// Publishes this player's card (handle, avatar, level, streak...).
     /// Claims a unique handle on first run, derived from the player name.
     func syncProfile() async {

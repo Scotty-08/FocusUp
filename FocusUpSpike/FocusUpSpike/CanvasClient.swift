@@ -97,16 +97,22 @@ final class CanvasClient: ObservableObject {
                 // future, not yet closed" -- the same set of assignments
                 // that drives a student's own Canvas To-Do list, so this
                 // mirrors what they'd see there.
+                // include[]=submission adds YOUR submission to each
+                // assignment, so ones you've already turned in (or that
+                // were graded/excused) are skipped instead of becoming
+                // quests -- "upcoming" alone still lists them.
                 let courseAssignments = try await Self.request(
                     domain: domain, token: token,
                     path: "/api/v1/courses/\(course.id)/assignments",
                     query: [
                         URLQueryItem(name: "bucket", value: "upcoming"),
-                        URLQueryItem(name: "order_by", value: "due_at")
+                        URLQueryItem(name: "order_by", value: "due_at"),
+                        URLQueryItem(name: "include[]", value: "submission"),
+                        URLQueryItem(name: "per_page", value: "50")
                     ],
-                    as: [CanvasAssignment].self
+                    as: [CanvasAssignmentEntry].self
                 )
-                assignments.append(contentsOf: courseAssignments)
+                assignments.append(contentsOf: courseAssignments.filter { !$0.isDone }.map(\.assignment))
             }
             manager.mergeCanvasAssignments(assignments)
             lastSyncedAt = Date()
@@ -164,6 +170,47 @@ final class CanvasClient: ObservableObject {
         } catch {
             throw CanvasError.invalidResponse
         }
+    }
+}
+
+/// One assignment as the Canvas API returns it with include[]=submission.
+/// Kept separate from CanvasAssignment, which is shared with the Safari
+/// extension's hand-off format.
+private struct CanvasAssignmentEntry: Decodable {
+    struct Submission: Decodable {
+        let workflowState: String?
+        let submittedAt: String?
+        let excused: Bool?
+
+        enum CodingKeys: String, CodingKey {
+            case workflowState = "workflow_state"
+            case submittedAt = "submitted_at"
+            case excused
+        }
+    }
+
+    let id: Int
+    let name: String
+    let dueAt: Date?
+    let htmlUrl: URL
+    let submission: Submission?
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, submission
+        case dueAt = "due_at"
+        case htmlUrl = "html_url"
+    }
+
+    /// Turned in, graded, or excused -- nothing left to do.
+    var isDone: Bool {
+        guard let submission else { return false }
+        if submission.excused == true { return true }
+        if let submitted = submission.submittedAt, !submitted.isEmpty { return true }
+        return ["submitted", "graded", "pending_review"].contains(submission.workflowState ?? "")
+    }
+
+    var assignment: CanvasAssignment {
+        CanvasAssignment(id: id, name: name, dueAt: dueAt, htmlUrl: htmlUrl)
     }
 }
 

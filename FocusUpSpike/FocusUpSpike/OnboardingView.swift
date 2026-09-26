@@ -31,9 +31,10 @@ struct OnboardingView: View {
 
     // Avatar / profile step.
     @State private var usernameInput = ""
-    @State private var dateOfBirth = Calendar.current.date(byAdding: .year, value: -18, to: Date()) ?? Date()
     @State private var avatarDraft = AvatarConfig.starter
     @State private var profileError: String?
+    @State private var isClaimingHandle = false
+    @StateObject private var friends = FriendsStore.shared
 
     @State private var notificationsRequested = false
 
@@ -80,7 +81,7 @@ struct OnboardingView: View {
         .sheet(isPresented: $showGroupSheet) {
             GroupDetailView(
                 existingGroup: nil,
-                guidedHint: "Choose the apps that pull you off track, name the group, and keep it on Block -- they'll stay locked until you clear a quest. You can tune rules later."
+                guidedHint: "Choose the apps that pull you off track, name the group, and keep it on Block so they stay locked until you clear a quest. You can tune rules later."
             )
         }
     }
@@ -134,6 +135,11 @@ struct OnboardingView: View {
                             .padding(.horizontal, 14)
                             .frame(height: 46)
                             .hudPanel()
+                        if let handle = handlePreview {
+                            Text("Friends find you as @\(handle). It's yours alone: no one else can use it.")
+                                .font(.system(size: 11))
+                                .foregroundStyle(PlayerTheme.textMuted)
+                        }
                     }
 
                     // Everyone starts as a human: pick male/female, skin and
@@ -155,18 +161,6 @@ struct OnboardingView: View {
                         .foregroundStyle(PlayerTheme.textMuted)
                         .multilineTextAlignment(.center)
 
-                    VStack(alignment: .leading, spacing: 6) {
-                        HUDLabel(text: "Date of Birth", size: 10)
-                        DatePicker("", selection: $dateOfBirth, in: ...Date(), displayedComponents: .date)
-                            .datePickerStyle(.compact)
-                            .labelsHidden()
-                            .tint(PlayerTheme.cyan)
-                            .padding(.horizontal, 14)
-                            .frame(height: 46, alignment: .leading)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .hudPanel()
-                    }
-
                     if let profileError {
                         Text(profileError)
                             .font(.system(size: 12))
@@ -177,7 +171,7 @@ struct OnboardingView: View {
                 .padding(.top, 8)
             }
 
-            primaryButton(label: "Continue") {
+            primaryButton(label: isClaimingHandle ? "Checking name..." : "Continue", enabled: !isClaimingHandle) {
                 let trimmed = usernameInput.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !trimmed.isEmpty else {
                     profileError = "Enter a player name to continue."
@@ -188,7 +182,20 @@ struct OnboardingView: View {
                 // Saved now (not at the end) so an interrupted run keeps it.
                 character.rename(trimmed)
                 character.setAvatar(avatarDraft)
-                step = .screenTime
+                // Reserve the friend handle now, so a taken name is caught
+                // here instead of silently getting random digits later.
+                isClaimingHandle = true
+                Task { @MainActor in
+                    defer { isClaimingHandle = false }
+                    switch await friends.claimHandle(forPlayerName: trimmed) {
+                    case .taken(let handle):
+                        profileError = "@\(handle) is already taken. Try a different player name."
+                    case .claimed, .unavailable:
+                        // .unavailable = offline or not connected yet; the
+                        // handle is claimed on the next profile sync instead.
+                        step = .screenTime
+                    }
+                }
             }
             .padding(.horizontal, 28)
             .padding(.vertical, 20)
@@ -301,7 +308,7 @@ struct OnboardingView: View {
             tag: stepTag(3),
             icon: "bell.badge.fill",
             headline: "Stay In The Loop",
-            body: "Notifications are how FocusUp taps you back in after a Quest Clear or a check-in -- extensions can't reopen the app directly, so this is the bridge.",
+            body: "FocusUp nudges you when a quest is cleared or it's time to check in, and one tap brings you back.",
             primaryLabel: notificationsRequested ? "Continue" : "Enable Notifications",
             primaryAction: {
                 if notificationsRequested {
@@ -372,10 +379,12 @@ struct OnboardingView: View {
                     switch manager.authorizationStatus {
                     case .approved:
                         primaryButton(label: "Choose Apps to Lock") { showGroupSheet = true }
+                        skipGroupLink
                     case .notDetermined:
                         primaryButton(label: "Grant Screen Time Access") {
                             Task { await manager.requestAuthorization() }
                         }
+                        skipGroupLink
                     default:
                         // Denied: iOS only asks once, so there's no way to
                         // create a group from here -- let them move on
@@ -387,6 +396,27 @@ struct OnboardingView: View {
             .padding(.horizontal, 28)
             .padding(.bottom, 40)
         }
+    }
+
+    /// Lets someone look around before locking anything; groups can be
+    /// added any time from Home.
+    private var skipGroupLink: some View {
+        Button { step = .firstQuests } label: {
+            Text("Skip for now")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(PlayerTheme.textMuted)
+                .frame(height: 34)
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// The friend handle the typed name turns into (same rule the server
+    /// sync uses), or the one already reserved for this account.
+    private var handlePreview: String? {
+        if let saved = friends.myUsername { return saved }
+        let trimmed = usernameInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return FriendsStore.sanitizedHandle(trimmed)
     }
 
     // MARK: - Step 5: First quests
@@ -402,7 +432,7 @@ struct OnboardingView: View {
                         Text("Add Your Quests")
                             .font(.system(size: 24, weight: .heavy))
                             .foregroundStyle(PlayerTheme.textPrimary)
-                        Text("Quests are what unlock your apps. Add at least one -- three is a great start. Priority and deadline decide which quest FocusUp asks about first, and higher priority pays more EXP and coins.")
+                        Text("Quests are what unlock your apps. Add at least one. Three is a great start. Priority and deadline decide which quest FocusUp asks about first, and higher priority pays more EXP and coins.")
                             .font(.system(size: 14))
                             .foregroundStyle(PlayerTheme.textMuted)
                             .multilineTextAlignment(.center)
@@ -455,7 +485,7 @@ struct OnboardingView: View {
 
     private var questForm: some View {
         VStack(alignment: .leading, spacing: 12) {
-            TextField("", text: $newQuestTitle, prompt: Text("e.g. Apply to 3 internships").foregroundStyle(PlayerTheme.textMuted))
+            TextField("", text: $newQuestTitle, prompt: Text("e.g. Finish lab report").foregroundStyle(PlayerTheme.textMuted))
                 .foregroundStyle(PlayerTheme.textPrimary)
                 .padding(.horizontal, 14)
                 .frame(height: 44)
@@ -568,7 +598,7 @@ struct OnboardingView: View {
                         .font(.system(size: 13))
                         .foregroundStyle(PlayerTheme.textMuted)
                     if !manager.groups.isEmpty {
-                        Text("Your apps are locked -- clear a quest to unlock them.")
+                        Text("Your apps are locked. Clear a quest to unlock them.")
                             .font(.system(size: 12))
                             .foregroundStyle(PlayerTheme.textMuted)
                             .multilineTextAlignment(.center)
@@ -582,7 +612,7 @@ struct OnboardingView: View {
             Spacer()
 
             primaryButton(label: "Enter FocusUp") {
-                auth.completeOnboarding(username: character.name, dateOfBirth: dateOfBirth)
+                auth.completeOnboarding(username: character.name)
             }
             .padding(.horizontal, 28)
             .padding(.bottom, 40)

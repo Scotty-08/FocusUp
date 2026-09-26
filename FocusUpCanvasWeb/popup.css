@@ -77,3 +77,49 @@ button:disabled {
     text-decoration: underline;
     padding: 4px;
 }
+
+button.apple {
+    background: #000;
+    color: #fff;
+    border: 1px solid #000;
+    margin-bottom: 4px;
+}
+
+@media (prefers-color-scheme: dark) {
+    button.apple {
+        background: #fff;
+        color: #000;
+        border-color: #fff;
+    }
+}
+
+.divider {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 0;
+    font-size: 11px;
+    color: gray;
+}
+
+.divider::before, .divider::after {
+    content: "";
+    flex: 1;
+    border-top: 1px solid rgba(128, 128, 128, 0.35);
+}
+
+.hint.small {
+    font-size: 11px;
+    margin-top: 6px;
+}
+
+.apple-logo {
+    width: 12px;
+    height: 14px;
+    vertical-align: -2px;
+    margin-right: 4px;
+}
+
+[hidden] {
+    display: none !important;
+}

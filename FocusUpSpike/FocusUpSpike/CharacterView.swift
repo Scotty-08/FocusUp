@@ -250,12 +250,12 @@ struct CharacterView: View {
         }
         switch species.unlock {
         case .level(let needed):
-            companionMessage = "The \(species.name) unlocks at level \(needed) -- you're level \(character.level). Clear quests to level up."
+            companionMessage = "The \(species.name) unlocks at level \(needed). You're level \(character.level). Clear quests to level up."
         case .coins(let price):
             if character.coins >= price {
                 pendingCompanion = species
             } else {
-                companionMessage = "The \(species.name) costs \(price) coins -- you need \(price - character.coins) more. Clear quests to earn them."
+                companionMessage = "The \(species.name) costs \(price) coins. You need \(price - character.coins) more. Clear quests to earn them."
             }
         case .starter:
             break
@@ -324,7 +324,7 @@ struct CharacterView: View {
                     .foregroundStyle(PlayerTheme.emberOrange)
             }
 
-            Text("Clear quests to earn coins and EXP -- a medium quest pays 100 EXP and 20 coins, low pays half and high pays 1.5x. EXP raises your level and unlocks companions; coins buy upgrades and the rarer companions. Everything you buy fits every companion.")
+            Text("Clear quests to earn coins and EXP. A medium quest pays 100 EXP and 20 coins, low pays half and high pays 1.5x. EXP raises your level and unlocks companions; coins buy upgrades and the rarer companions. Everything you buy fits every companion.")
                 .font(.system(size: 10))
                 .foregroundStyle(PlayerTheme.textMuted)
         }
@@ -394,7 +394,7 @@ struct CharacterView: View {
         } else if character.coins >= item.cost {
             pendingPurchase = item
         } else {
-            shopMessage = "Not enough coins for \(item.name) -- you need \(item.cost - character.coins) more. Clear quests to earn them."
+            shopMessage = "Not enough coins for \(item.name). You need \(item.cost - character.coins) more. Clear quests to earn them."
         }
     }
 }

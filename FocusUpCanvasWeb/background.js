@@ -12,8 +12,9 @@
 // instead of an on-device App Group, since a laptop and a phone are two
 // different devices. See that extension's background.js for the
 // permissions.onAdded reasoning this mirrors.
+import { ext } from "./ext.js";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
-import { signIn, signOut, currentSession, validAccessToken } from "./auth.js";
+import { signIn, signInWithApple, signOut, currentSession, validAccessToken } from "./auth.js";
 
 const DEDUPE_MS = 5 * 1000; // guards against a page firing content.js twice
 // in the same instant (e.g. multiple frames) -- NOT a cooldown on real
@@ -24,6 +25,16 @@ const DEDUPE_MS = 5 * 1000; // guards against a page firing content.js twice
 
 function scriptIdFor(origin) {
     return "focusup-canvas-autosync:" + origin;
+}
+
+// With include[]=submission each assignment carries YOUR submission;
+// "upcoming" alone still lists things you've already turned in.
+function isDone(assignment) {
+    const sub = assignment.submission;
+    if (!sub) return false;
+    if (sub.excused) return true;
+    if (sub.submitted_at) return true;
+    return ["submitted", "graded", "pending_review"].includes(sub.workflow_state);
 }
 
 async function fetchCanvasAssignments(origin) {
@@ -43,18 +54,23 @@ async function fetchCanvasAssignments(origin) {
         const courses = await coursesRes.json();
 
         const assignments = [];
+        const doneIds = [];
         for (const course of courses) {
             const aRes = await fetch(
-                origin + `/api/v1/courses/${course.id}/assignments?bucket=upcoming&order_by=due_at&per_page=50`,
+                origin + `/api/v1/courses/${course.id}/assignments?bucket=upcoming&order_by=due_at&per_page=50&include[]=submission`,
                 { credentials: "include" }
             );
             if (!aRes.ok) continue;
             const list = await aRes.json();
             for (const a of list) {
+                if (isDone(a)) {
+                    doneIds.push(a.id); // already turned in, graded, or excused
+                    continue;
+                }
                 assignments.push({ id: a.id, name: a.name, due_at: a.due_at, html_url: a.html_url });
             }
         }
-        return { ok: true, assignments };
+        return { ok: true, assignments, doneIds };
     } catch (error) {
         return { ok: false, error: String(error) };
     }
@@ -96,11 +112,30 @@ async function pushAssignments(userId, assignments) {
     return { ok: true, count: rows.length };
 }
 
+// Something synced earlier but turned in since then shouldn't still be
+// waiting for the app to pick it up.
+async function withdrawDone(userId, ids) {
+    if (ids.length === 0) return;
+    const token = await validAccessToken();
+    if (!token) return;
+    try {
+        await fetch(
+            `${SUPABASE_URL}/rest/v1/canvas_pending_assignments?user_id=eq.${userId}&id=in.(${ids.join(",")})`,
+            {
+                method: "DELETE",
+                headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, Prefer: "return=minimal" },
+            }
+        );
+    } catch {
+        // Best-effort; the next sync tries again.
+    }
+}
+
 async function ensureRegistered(origin) {
     const id = scriptIdFor(origin);
-    const existing = await chrome.scripting.getRegisteredContentScripts({ ids: [id] });
+    const existing = await ext.scripting.getRegisteredContentScripts({ ids: [id] });
     if (existing.length === 0) {
-        await chrome.scripting.registerContentScripts([
+        await ext.scripting.registerContentScripts([
             {
                 id,
                 matches: [origin + "/*"],
@@ -121,7 +156,7 @@ async function syncOrigin(origin, { force = false } = {}) {
 
     const key = "focusUp.lastAutoSync." + origin;
     if (!force) {
-        const stored = await chrome.storage.local.get(key);
+        const stored = await ext.storage.local.get(key);
         const last = stored[key] ?? 0;
         if (Date.now() - last < DEDUPE_MS) {
             console.log("[FocusUp] deduped -- synced", Date.now() - last, "ms ago");
@@ -136,7 +171,8 @@ async function syncOrigin(origin, { force = false } = {}) {
     }
     console.log("[FocusUp] fetched", result.assignments.length, "assignments -- pushing to server");
     const response = await pushAssignments(session.userId, result.assignments);
-    await chrome.storage.local.set({ [key]: Date.now() });
+    await withdrawDone(session.userId, result.doneIds);
+    await ext.storage.local.set({ [key]: Date.now() });
     console.log("[FocusUp] push result:", response);
     return { ok: response.ok, count: result.assignments.length, error: response.error };
 }
@@ -146,8 +182,8 @@ async function syncOrigin(origin, { force = false } = {}) {
 // controls. Chrome may not always keep this service worker alive to
 // catch it, which is why popup.js also self-heals on open -- this
 // listener is the fast path, that's the safety net.
-if (chrome.permissions?.onAdded) {
-    chrome.permissions.onAdded.addListener(async (permissions) => {
+if (ext.permissions?.onAdded) {
+    ext.permissions.onAdded.addListener(async (permissions) => {
         for (const originPattern of permissions.origins ?? []) {
             const origin = originPattern.replace(/\/\*$/, "");
             await ensureRegistered(origin);
@@ -160,22 +196,22 @@ if (chrome.permissions?.onAdded) {
 // only fires on an actual page load of a matched Canvas site, so
 // sitting on an already-open tab (or the service worker having gone to
 // sleep between visits) meant nothing happened until you reopened the
-// popup yourself, which isn't "auto" at all. chrome.alarms wakes the
+// popup yourself, which isn't "auto" at all. ext.alarms wakes the
 // service worker on a timer even when nothing else would -- this is
 // what makes it real background sync instead of "only when the popup
 // happens to run."
 const PERIODIC_SYNC_ALARM = "focusup-canvas-periodic-sync";
 
-chrome.alarms.create(PERIODIC_SYNC_ALARM, { periodInMinutes: 10 });
+ext.alarms.create(PERIODIC_SYNC_ALARM, { periodInMinutes: 10 });
 
-chrome.alarms.onAlarm.addListener(async (alarm) => {
+ext.alarms.onAlarm.addListener(async (alarm) => {
     if (alarm.name !== PERIODIC_SYNC_ALARM) return;
     const session = await currentSession();
     if (!session) return;
     // Every site the user has actually enabled auto-sync for has a
     // registered content script -- that list IS the "which Canvas
     // sites am I watching" list, so there's nothing separate to store.
-    const scripts = await chrome.scripting.getRegisteredContentScripts();
+    const scripts = await ext.scripting.getRegisteredContentScripts();
     for (const script of scripts) {
         if (!script.id.startsWith("focusup-canvas-autosync:")) continue;
         const origin = script.id.slice("focusup-canvas-autosync:".length);
@@ -183,7 +219,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     }
 });
 
-chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
+ext.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     (async () => {
         switch (request?.type) {
             case "syncOrigin":
@@ -199,6 +235,15 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
             case "signIn":
                 sendResponse(await signIn(request.email, request.password));
                 break;
+            case "signInWithApple": {
+                // The popup has usually closed by the time this resolves;
+                // the stored session is what it finds when reopened. The
+                // result is also kept briefly so an error can be shown.
+                const result = await signInWithApple();
+                await ext.storage.local.set({ "focusUp.lastAppleResult": { ...result, session: undefined, at: Date.now() } });
+                sendResponse(result);
+                break;
+            }
             case "signOut":
                 await signOut();
                 sendResponse({ ok: true });

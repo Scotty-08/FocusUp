@@ -1,3 +1,5 @@
+import { ext } from "./ext.js";
+import { APPLE_WEB_SIGNIN_ENABLED } from "./config.js";
 const authSection = document.getElementById("authSection");
 const syncSection = document.getElementById("syncSection");
 const emailInput = document.getElementById("email");
@@ -9,6 +11,11 @@ const statusEl = document.getElementById("status");
 const actionButton = document.getElementById("actionButton");
 const offButton = document.getElementById("offButton");
 const signOutButton = document.getElementById("signOutButton");
+const appleButton = document.getElementById("appleButton");
+if (!APPLE_WEB_SIGNIN_ENABLED) {
+    appleButton.hidden = true;
+    document.querySelector(".divider")?.setAttribute("hidden", "");
+}
 
 function scriptIdFor(origin) {
     return "focusup-canvas-autosync:" + origin;
@@ -29,17 +36,22 @@ let isEnabled = false;
 // per-site extension controls instead of our button) and finishes
 // wiring it up right here rather than leaving it half-set-up.
 async function refreshUI() {
-    const session = await chrome.runtime.sendMessage({ type: "getSession" });
+    const session = await ext.runtime.sendMessage({ type: "getSession" });
     if (!session) {
         authSection.style.display = "block";
         syncSection.style.display = "none";
+        // An Apple sign-in that failed while this popup was closed.
+        const { "focusUp.lastAppleResult": last } = await ext.storage.local.get("focusUp.lastAppleResult");
+        if (last && !last.ok && Date.now() - last.at < 2 * 60 * 1000) {
+            authError.textContent = last.error;
+        }
         return;
     }
     authSection.style.display = "none";
     syncSection.style.display = "block";
     accountLine.textContent = session.email ? `Signed in as ${session.email}` : "Signed in";
 
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const [tab] = await ext.tabs.query({ active: true, currentWindow: true });
 
     let origin;
     try {
@@ -53,7 +65,7 @@ async function refreshUI() {
     currentOrigin = origin;
     currentOriginPattern = origin + "/*";
 
-    const hasPermission = await chrome.permissions.contains({ origins: [currentOriginPattern] });
+    const hasPermission = await ext.permissions.contains({ origins: [currentOriginPattern] });
     if (!hasPermission) {
         isEnabled = false;
         statusEl.textContent = "Open your Canvas dashboard, then turn on auto-sync so new assignments import every time you visit.";
@@ -69,14 +81,14 @@ async function refreshUI() {
     actionButton.style.display = "none";
     offButton.style.display = "none";
 
-    const response = await chrome.runtime.sendMessage({ type: "enableAutoSync", origin: currentOrigin });
+    const response = await ext.runtime.sendMessage({ type: "enableAutoSync", origin: currentOrigin });
     isEnabled = true;
     if (response?.skipped) {
         statusEl.textContent = "Auto-sync is on for this site. New assignments import automatically every time you open Canvas here.";
         statusEl.className = "success";
     } else if (response?.ok) {
         const n = response.count ?? 0;
-        statusEl.textContent = `Auto-sync is on. Imported ${n} assignment${n === 1 ? "" : "s"} -- new ones will keep importing automatically.`;
+        statusEl.textContent = `Auto-sync is on. Imported ${n} assignment${n === 1 ? "" : "s"}. New ones will keep importing automatically.`;
         statusEl.className = "success";
     } else {
         statusEl.textContent = "Auto-sync is on for this site, but the last import didn't go through. It'll try again next time you're here.";
@@ -95,7 +107,7 @@ async function enableAutoSync() {
     // Fires as the very first thing after the click, nothing awaited
     // ahead of it, so it stays inside the tap the browser expects for
     // a permission prompt.
-    const granted = await chrome.permissions.request({ origins: [currentOriginPattern] });
+    const granted = await ext.permissions.request({ origins: [currentOriginPattern] });
     if (!granted) {
         showError("FocusUp needs access to this site to auto-sync. You can try again anytime.");
         actionButton.disabled = false;
@@ -111,7 +123,7 @@ async function syncNow() {
     statusEl.textContent = "Reading your Canvas assignments…";
     statusEl.className = "";
 
-    const response = await chrome.runtime.sendMessage({ type: "syncOrigin", origin: currentOrigin, force: true });
+    const response = await ext.runtime.sendMessage({ type: "syncOrigin", origin: currentOrigin, force: true });
     if (response?.ok) {
         const n = response.count ?? 0;
         statusEl.textContent = `Imported ${n} assignment${n === 1 ? "" : "s"}. Open FocusUp to see your Quest Log.`;
@@ -123,8 +135,8 @@ async function syncNow() {
 }
 
 async function turnOff() {
-    await chrome.scripting.unregisterContentScripts({ ids: [scriptIdFor(currentOrigin)] }).catch(() => {});
-    await chrome.permissions.remove({ origins: [currentOriginPattern] });
+    await ext.scripting.unregisterContentScripts({ ids: [scriptIdFor(currentOrigin)] }).catch(() => {});
+    await ext.permissions.remove({ origins: [currentOriginPattern] });
     isEnabled = false;
     await refreshUI();
 }
@@ -149,7 +161,7 @@ signInButton.addEventListener("click", async () => {
         signInButton.disabled = false;
         return;
     }
-    const result = await chrome.runtime.sendMessage({ type: "signIn", email, password });
+    const result = await ext.runtime.sendMessage({ type: "signIn", email, password });
     signInButton.disabled = false;
     if (!result?.ok) {
         authError.textContent = result?.error || "Sign-in failed. Try again.";
@@ -159,8 +171,22 @@ signInButton.addEventListener("click", async () => {
     await refreshUI();
 });
 
+appleButton.addEventListener("click", async () => {
+    authError.textContent = "";
+    appleButton.disabled = true;
+    // Handled in background.js -- this popup usually closes as soon as
+    // the Apple window opens; reopening it shows you signed in.
+    const result = await ext.runtime.sendMessage({ type: "signInWithApple" });
+    appleButton.disabled = false;
+    if (!result?.ok) {
+        authError.textContent = result?.error || "Apple sign-in didn't finish. Try again.";
+        return;
+    }
+    await refreshUI();
+});
+
 signOutButton.addEventListener("click", async () => {
-    await chrome.runtime.sendMessage({ type: "signOut" });
+    await ext.runtime.sendMessage({ type: "signOut" });
     await refreshUI();
 });
 

@@ -2,25 +2,30 @@
     "manifest_version": 3,
     "name": "FocusUp for Canvas",
     "description": "Import your upcoming Canvas assignments into FocusUp's Quest Log from any computer.",
-    "version": "1.0",
-
+    "version": "1.2",
+    "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvnBLojHrF9QlqhEN3kESOvc4nGN84A8IxIxihgcwWMwMp551D9CLtuoPJt/5KJuTlqRRQtY3DFcCUfgqCvoHRRhz91Fam9d0P0WZGfvvUeBjog6mfppnJSb/dT0bxdVejmzV3NWdLUxnkAYbVqADCWTEZokE01qjfRV9CxkzlGeW2XryHq7BLE9Fc5YqwMC1rcgrKvh3EhdFUFD3LrU0j/vkR+JIuaCvnbpwR31uoqCNwnESfa7GDPC3fz5N2XHZKyC0e9tNqL35Pe5UU5lvhnWdkIys2AoA133kDeFy1iHFqb9rcehCRgYKqGF0hKKeRZ3H/qxNH0tzfixjnRv19wIDAQAB",
     "icons": {
         "16": "icons/icon-16.png",
         "32": "icons/icon-32.png",
         "48": "icons/icon-48.png",
         "128": "icons/icon-128.png"
     },
-
     "background": {
         "service_worker": "background.js",
         "type": "module"
     },
-
     "action": {
         "default_popup": "popup.html",
         "default_icon": "icons/icon-48.png"
     },
-
-    "permissions": [ "storage", "scripting", "activeTab", "alarms" ],
-    "optional_host_permissions": [ "*://*/*" ]
+    "permissions": [
+        "storage",
+        "scripting",
+        "activeTab",
+        "alarms",
+        "identity"
+    ],
+    "optional_host_permissions": [
+        "*://*/*"
+    ]
 }

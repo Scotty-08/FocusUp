@@ -222,7 +222,7 @@ struct FriendsView: View {
     @ViewBuilder
     private var friendsList: some View {
         if store.friends.isEmpty {
-            notice("No friends yet. Add someone by username above -- once they accept, they show up here and on the leaderboard.")
+            notice("No friends yet. Add someone by username above. Once they accept, they show up here and on the leaderboard.")
         } else {
             VStack(spacing: 8) {
                 ForEach(store.friends) { row in
@@ -378,7 +378,7 @@ private struct ConnectCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HUDLabel(text: isAppleUser ? "Link your online account" : "Connect your account", size: 10)
             Text(isAppleUser
-                 ? "You're signed in on this device, but your online FocusUp account isn't linked yet. Tap once to link it with Apple -- no password needed. Your quests and app blocking work either way."
+                 ? "You're signed in on this device, but your online FocusUp account isn't linked yet. Tap once to link it with Apple. No password needed. Your quests and app blocking work either way."
                  : "Sign in to your FocusUp account to add friends and appear on leaderboards. Your quests and app blocking keep working either way.")
                 .font(.system(size: 12))
                 .foregroundStyle(PlayerTheme.textMuted)

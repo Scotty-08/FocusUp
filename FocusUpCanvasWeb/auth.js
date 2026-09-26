@@ -7,21 +7,22 @@
 // raw token; it just asks background.js "am I signed in" / "sign in
 // with this email+password" and gets back a plain yes/no, so there's
 // one place tokens actually live.
+import { ext } from "./ext.js";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
 
 const SESSION_KEY = "focusUp.session";
 
 async function readSession() {
-    const stored = await chrome.storage.local.get(SESSION_KEY);
+    const stored = await ext.storage.local.get(SESSION_KEY);
     return stored[SESSION_KEY] ?? null;
 }
 
 async function writeSession(session) {
-    await chrome.storage.local.set({ [SESSION_KEY]: session });
+    await ext.storage.local.set({ [SESSION_KEY]: session });
 }
 
 async function clearSession() {
-    await chrome.storage.local.remove(SESSION_KEY);
+    await ext.storage.local.remove(SESSION_KEY);
 }
 
 function adoptSession(json) {
@@ -62,6 +63,71 @@ async function authRequest(grantType, body) {
 
 export async function signIn(email, password) {
     return authRequest("password", { email, password });
+}
+
+// Sign in with Apple, through Supabase's hosted OAuth flow:
+//   1. open Supabase's /authorize?provider=apple in the browser's own
+//      auth window (identity.launchWebAuthFlow),
+//   2. the user signs in on Apple's page (their own Apple ID -- the same
+//      account they use in the FocusUp app),
+//   3. Supabase redirects back to this extension's private redirect URL
+//      with the session tokens in the URL fragment.
+// Runs in background.js, not the popup: the popup closes the moment the
+// Apple window takes focus, which would drop the result.
+//
+// The redirect URL (identity.getRedirectURL()) must be listed under
+// Supabase -> Authentication -> URL Configuration -> Redirect URLs, or
+// Supabase sends the user to the Site URL instead and this never
+// completes. It's shown in the error text so it's easy to copy.
+export function appleRedirectURL() {
+    return ext.identity.getRedirectURL();
+}
+
+export async function signInWithApple() {
+    const redirectTo = appleRedirectURL();
+    const url = `${SUPABASE_URL}/auth/v1/authorize?provider=apple&redirect_to=${encodeURIComponent(redirectTo)}`;
+    let responseURL;
+    try {
+        responseURL = await ext.identity.launchWebAuthFlow({ url, interactive: true });
+    } catch (error) {
+        const message = String(error?.message ?? error);
+        if (/cancel|closed|did not approve/i.test(message)) {
+            return { ok: false, error: "Apple sign-in was cancelled." };
+        }
+        return { ok: false, error: `Apple sign-in didn't finish. If this keeps happening, add ${redirectTo} to FocusUp's allowed redirect URLs.` };
+    }
+    const fragment = new URL(responseURL).hash.replace(/^#/, "");
+    const params = new URLSearchParams(fragment || new URL(responseURL).search);
+    if (params.get("error")) {
+        return { ok: false, error: params.get("error_description") || params.get("error") };
+    }
+    const accessToken = params.get("access_token");
+    const refreshToken = params.get("refresh_token");
+    if (!accessToken || !refreshToken) {
+        return { ok: false, error: "Apple sign-in didn't return a session. Try again." };
+    }
+    // The fragment has the tokens but not who they belong to -- ask.
+    let user;
+    try {
+        const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+            headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${accessToken}` },
+        });
+        user = await res.json();
+        if (!res.ok) throw new Error(String(res.status));
+    } catch {
+        return { ok: false, error: "Couldn't reach the FocusUp server. Check your connection." };
+    }
+    const session = adoptSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        expires_in: Number(params.get("expires_in") ?? 3600),
+        user,
+    });
+    if (!session) {
+        return { ok: false, error: "Apple sign-in didn't return a session. Try again." };
+    }
+    await writeSession(session);
+    return { ok: true, session };
 }
 
 export async function signOut() {

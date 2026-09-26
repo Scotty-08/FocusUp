@@ -97,7 +97,7 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
         if let task = pressingQuest {
             headline = "Complete this quest to unlock:\n\(task.title)"
         } else {
-            headline = "No quests yet -- add one and complete it to unlock."
+            headline = "No quests yet. Add one and complete it to unlock."
         }
         return shield(subtitle: "\(headline)\n\(streakLine)",
                       primary: "Open Quests",
