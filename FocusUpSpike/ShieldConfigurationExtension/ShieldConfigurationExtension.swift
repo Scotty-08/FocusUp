@@ -124,7 +124,7 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
         // ShieldActionExtension.finishPause), so it's the screen iOS
         // keeps for the next reminder instead of the pause screen.
         if let pause = GroupRuntimeState.pause(for: group.id), pause.endsAt > Date() {
-            return pauseShield()
+            return pauseShield(endsAt: pause.endsAt)
         }
         // Same shape as the block shield (context line, quest, streak) so
         // every shield reads the same; the buttons carry the "check in or
@@ -147,17 +147,21 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
     }
 
     /// Shown while a dismiss pause is counting down (see
-    /// ShieldActionExtension.startOrCheckPause). Deliberately just the
-    /// one question -- no title, no subtitle, no timer. The buttons keep
-    /// their labels because they still work: "Open Quests" is the better
-    /// way out, and Dismiss after the pause lets the user in if the app
-    /// didn't already open on its own.
-    private func pauseShield() -> ShieldConfiguration {
+    /// ShieldActionExtension.startOrCheckPause). Just the one line, no
+    /// subtitle -- the number is worked out fresh from the stored end
+    /// time every time iOS asks for this shield, which it does after
+    /// each Dismiss (`.defer`); the shield can't tick on its own, so it
+    /// only updates on tap. The buttons keep their labels because they
+    /// still work: "Open Quests" is the better way out, and Dismiss
+    /// after the pause lets the user in if the app didn't already open
+    /// on its own.
+    private func pauseShield(endsAt: Date) -> ShieldConfiguration {
+        let remaining = max(0, Int(endsAt.timeIntervalSinceNow.rounded(.up)))
         let hasQuest = pressingQuest != nil
         return ShieldConfiguration(
             backgroundColor: bg,
             icon: FocusUpEmblem.image,
-            title: .init(text: "Is this really necessary?", color: ink),
+            title: .init(text: "You will be able to use your app after \(remaining) seconds", color: ink),
             subtitle: nil,
             primaryButtonLabel: .init(text: hasQuest ? "Open Quests" : "Continue", color: bg),
             primaryButtonBackgroundColor: cyan,
