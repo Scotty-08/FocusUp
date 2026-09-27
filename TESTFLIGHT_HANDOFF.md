@@ -18,3 +18,6 @@ Xcode GUI archive succeeded, including updated icon, September 18 at 11:29 PM. O
 No binary uploaded, no invites sent, no public release submitted by this session. Physical-device TestFlight behavior not verified. Current email/password UI is explicitly a local preview, not secure backend authentication.
 
 See accompanying FocusUp-TestFlight-checklist.md for the detailed flow. Its earlier pending-approval section is superseded by the exact stopping point above.
+
+## Update Sep 25, 2026 (supersedes the stopping point above)
+Build 1.0 (3) uploaded to App Store Connect successfully from Xcode Organizer (App Store Connect distribution). Builds 1.0 (1) and 1.0 (2) had already been uploaded Sep 19 and predate the Sep 25 changes, so do not give them to testers. Fixes needed for this upload: all targets' CURRENT_PROJECT_VERSION set to 3, ITSAppUsesNonExemptEncryption = NO in the app Info.plist, and "persistent": false added to FocusUpCanvasExtension/Resources/manifest.json background (Apple rejects iOS Safari web extensions with background scripts and no persistent flag). Next: TestFlight test information, an external group with build 3, beta review, then testers. Still never submit a public App Store release.

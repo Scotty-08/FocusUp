@@ -1,0 +1,125 @@
+:root {
+    color-scheme: light dark;
+}
+
+body {
+    width: 260px;
+    padding: 14px;
+    font-family: system-ui;
+}
+
+h1 {
+    font-size: 14px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin: 0 0 10px 0;
+}
+
+.hint {
+    font-size: 12px;
+    line-height: 1.4;
+    color: gray;
+    margin: 0 0 10px 0;
+}
+
+input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 7px 8px;
+    margin-bottom: 8px;
+    font-size: 13px;
+    border-radius: 6px;
+    border: 1px solid rgba(128, 128, 128, 0.4);
+}
+
+#status {
+    font-size: 12px;
+    line-height: 1.4;
+    color: gray;
+    min-height: 32px;
+}
+
+#status.error, #authError {
+    color: #d33;
+}
+
+#status.success {
+    color: #2a8;
+}
+
+#authError {
+    font-size: 11px;
+    min-height: 14px;
+    margin: 0 0 4px 0;
+}
+
+button {
+    width: 100%;
+    padding: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 6px;
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+#offButton, .linklike {
+    margin-top: 8px;
+    font-weight: 400;
+    font-size: 11px;
+    color: #d33;
+    background: none;
+    border: none;
+    text-decoration: underline;
+    padding: 4px;
+}
+
+button.apple {
+    background: #000;
+    color: #fff;
+    border: 1px solid #000;
+    margin-bottom: 4px;
+}
+
+@media (prefers-color-scheme: dark) {
+    button.apple {
+        background: #fff;
+        color: #000;
+        border-color: #fff;
+    }
+}
+
+.divider {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 0;
+    font-size: 11px;
+    color: gray;
+}
+
+.divider::before, .divider::after {
+    content: "";
+    flex: 1;
+    border-top: 1px solid rgba(128, 128, 128, 0.35);
+}
+
+.hint.small {
+    font-size: 11px;
+    margin-top: 6px;
+}
+
+.apple-logo {
+    width: 12px;
+    height: 14px;
+    vertical-align: -2px;
+    margin-right: 4px;
+}
+
+[hidden] {
+    display: none !important;
+}

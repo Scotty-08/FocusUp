@@ -178,6 +178,11 @@ appleButton.addEventListener("click", async () => {
     // the Apple window opens; reopening it shows you signed in.
     const result = await ext.runtime.sendMessage({ type: "signInWithApple" });
     appleButton.disabled = false;
+    if (result?.pending) {
+        // Safari: sign-in continues in a new tab; reopen this afterwards.
+        authError.textContent = "Finish signing in with Apple in the new tab, then open FocusUp again.";
+        return;
+    }
     if (!result?.ok) {
         authError.textContent = result?.error || "Apple sign-in didn't finish. Try again.";
         return;
