@@ -182,15 +182,15 @@ class ShieldActionExtension: ShieldActionDelegate {
     ///   grows by the step for each pause already started today), keep
     ///   the token shielded, and answer `.defer`, which makes iOS
     ///   re-ask ShieldConfigurationExtension for the shield -- it now
-    ///   shows the seconds left.
+    ///   shows the pause screen ("Is this really necessary?").
     /// - A background waiter (see PauseWaiter) then removes the token
     ///   the moment the pause ends, so the shield vanishes and the user
     ///   is dropped into the app they're already in -- no tap needed.
-    /// - Dismiss again before it's over: just refreshes the seconds
-    ///   shown (no penalty -- escalation is per pause, not per tap).
-    /// - Dismiss after it's over: lets them straight in. This is also
-    ///   the guaranteed fallback if iOS reclaimed the extension before
-    ///   the waiter finished, so the user can never get stuck.
+    /// - Dismiss again before it's over: does nothing new (no penalty --
+    ///   escalation is per pause, not per tap).
+    /// - Dismiss after it's over: lets them in via finishPause. This is
+    ///   also the guaranteed fallback if iOS reclaimed the extension
+    ///   before the waiter finished, so the user can never get stuck.
     ///
     /// UNVERIFIED on device: how long iOS keeps the extension alive for
     /// the waiter (performExpiringActivity grants an undocumented amount
@@ -202,8 +202,7 @@ class ShieldActionExtension: ShieldActionDelegate {
         let now = Date()
         if let pause = GroupRuntimeState.pause(for: group.id) {
             if now >= pause.endsAt {
-                Self.release(group: group, application: application)
-                completionHandler(.none)
+                finishPause(group: group, application: application, pauseID: pause.id, completionHandler: completionHandler)
             } else {
                 // Still counting down. Re-arm a waiter in case the one
                 // from the first tap was already reclaimed by iOS.
@@ -228,6 +227,25 @@ class ShieldActionExtension: ShieldActionDelegate {
         completionHandler(.defer)
     }
 
+    /// The pause is over and the user tapped. Known iOS bug (Apple
+    /// forums since 2022, FB14237883): when a shield goes up on an app
+    /// that's ALREADY OPEN -- exactly what a while-you-use-it reminder
+    /// does -- iOS doesn't ask ShieldConfigurationExtension again, it
+    /// reuses the last screen it drew for that app. Left alone, that's
+    /// the pause screen, so the next reminder would show it.
+    ///
+    /// So instead of letting the user straight in, answer `.defer` one
+    /// last time: iOS redraws, and since the pause is over the
+    /// configuration extension draws the ORIGINAL reminder -- which is
+    /// now what iOS keeps. Half a second later the waiter releases the
+    /// app. If iOS reclaims the extension before that, the pause is
+    /// still marked over, so the next Dismiss comes straight back here
+    /// (no new pause, no escalation) -- the user can't get stuck.
+    private func finishPause(group: AppGroup, application: ApplicationToken, pauseID: UUID, completionHandler: @escaping (ShieldActionResponse) -> Void) {
+        PauseWaiter(group: group, application: application, pauseID: pauseID, minimumDelay: 0.5).start()
+        completionHandler(.defer)
+    }
+
     /// Waits out a dismiss pause in the background and releases the app
     /// when it ends. Uses ProcessInfo.performExpiringActivity -- the
     /// documented way for an app extension to ask for extra time after
@@ -242,13 +260,18 @@ class ShieldActionExtension: ShieldActionDelegate {
         private let group: AppGroup
         private let application: ApplicationToken
         private let pauseID: UUID
+        /// Wait at least this long before releasing, even if the pause
+        /// is already over -- gives iOS time to finish finishPause's
+        /// hand-off redraw before the shield goes away.
+        private let minimumDelay: TimeInterval
         private let lock = NSLock()
         private var expired = false
 
-        init(group: AppGroup, application: ApplicationToken, pauseID: UUID) {
+        init(group: AppGroup, application: ApplicationToken, pauseID: UUID, minimumDelay: TimeInterval = 0) {
             self.group = group
             self.application = application
             self.pauseID = pauseID
+            self.minimumDelay = minimumDelay
         }
 
         private var isExpired: Bool {
@@ -261,6 +284,9 @@ class ShieldActionExtension: ShieldActionDelegate {
                 if didExpire {
                     self.lock.lock(); self.expired = true; self.lock.unlock()
                     return
+                }
+                if self.minimumDelay > 0 {
+                    Thread.sleep(forTimeInterval: self.minimumDelay)
                 }
                 while !self.isExpired {
                     guard let pause = GroupRuntimeState.pause(for: self.group.id), pause.id == self.pauseID else {

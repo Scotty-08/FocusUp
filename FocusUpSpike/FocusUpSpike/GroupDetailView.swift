@@ -273,7 +273,7 @@ struct GroupDetailView: View {
             if pauseOnDismiss {
                 numberField(label: "Pause for", value: $pauseSeconds, suffix: "sec", range: 1...GroupRule.maxPauseSeconds)
                 numberField(label: "Add each time", value: $pauseStepSeconds, suffix: "sec", range: 0...GroupRule.maxPauseSeconds)
-                Text("Optional. When you tap Dismiss, the screen holds and counts down, then opens the app for you at 0. Each pause after that today is longer by the extra seconds (0 keeps it the same). Resets at midnight. The seconds shown update each time you tap Dismiss.")
+                Text("Optional. When you tap Dismiss, the screen holds on \"Is this really necessary?\" for this many seconds, then opens the app for you. Each pause after that today is longer by the extra seconds (0 keeps it the same). Resets at midnight.")
                     .font(.system(size: 10))
                     .foregroundStyle(PlayerTheme.textMuted)
             }

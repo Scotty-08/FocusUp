@@ -118,8 +118,13 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
     /// that exact same quest, so the shield and the check-in always
     /// agree on which one is "the" quest right now.
     private func reminderShield(group: AppGroup) -> ShieldConfiguration {
-        if let pause = GroupRuntimeState.pause(for: group.id) {
-            return pauseShield(group: group, pause: pause)
+        // Only while the pause is still running. A pause that's over
+        // renders the ORIGINAL reminder -- that's what gets drawn in the
+        // hand-off redraw right before the user is let in (see
+        // ShieldActionExtension.finishPause), so it's the screen iOS
+        // keeps for the next reminder instead of the pause screen.
+        if let pause = GroupRuntimeState.pause(for: group.id), pause.endsAt > Date() {
+            return pauseShield()
         }
         // Same shape as the block shield (context line, quest, streak) so
         // every shield reads the same; the buttons carry the "check in or
@@ -142,34 +147,22 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
     }
 
     /// Shown while a dismiss pause is counting down (see
-    /// ShieldActionExtension.startOrCheckPause). The seconds are worked
-    /// out fresh from the stored end time every time iOS asks for this
-    /// shield, which it does after each Dismiss (`.defer`) -- the shield
-    /// can't tick on its own, so the number updates on tap. The app
-    /// opens by itself at zero; Dismiss after zero also lets them in.
-    /// The quest stays on screen so waiting is a moment to reconsider,
-    /// and "Open Quests" stays available as the better way out.
-    private func pauseShield(group: AppGroup, pause: GroupRuntimeState.Pause) -> ShieldConfiguration {
-        let remaining = max(0, Int(pause.endsAt.timeIntervalSinceNow.rounded(.up)))
-        var lines: [String] = []
-        if remaining > 0 {
-            lines.append("Pausing \(group.name): \(remaining)s left.\nIt opens on its own at 0.")
-        } else {
-            lines.append("Pause over. Tap Dismiss to open \(group.name).")
-        }
-        let quest = pressingQuest
-        if let quest {
-            lines.append("Or clear this instead:\n\(quest.title)")
-        }
-        let step = group.rule.pauseStepSeconds ?? 0
-        if step > 0 {
-            let next = group.rule.pauseLength(afterPausesToday: GroupRuntimeState.pausesToday(group.id))
-            lines.append("Next pause today: \(next)s")
-        }
-        lines.append(streakLine)
-        return shield(subtitle: lines.joined(separator: "\n"),
-                      primary: quest != nil ? "Open Quests" : "Continue",
-                      secondary: .init(text: "Dismiss", color: inkDim))
+    /// ShieldActionExtension.startOrCheckPause). Deliberately just the
+    /// one question -- no title, no subtitle, no timer. The buttons keep
+    /// their labels because they still work: "Open Quests" is the better
+    /// way out, and Dismiss after the pause lets the user in if the app
+    /// didn't already open on its own.
+    private func pauseShield() -> ShieldConfiguration {
+        let hasQuest = pressingQuest != nil
+        return ShieldConfiguration(
+            backgroundColor: bg,
+            icon: FocusUpEmblem.image,
+            title: .init(text: "Is this really necessary?", color: ink),
+            subtitle: nil,
+            primaryButtonLabel: .init(text: hasQuest ? "Open Quests" : "Continue", color: bg),
+            primaryButtonBackgroundColor: cyan,
+            secondaryButtonLabel: .init(text: "Dismiss", color: inkDim)
+        )
     }
 
     /// The daily budget is used up -- neither shield button releases
