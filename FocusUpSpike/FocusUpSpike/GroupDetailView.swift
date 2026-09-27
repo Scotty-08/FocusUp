@@ -27,6 +27,9 @@ struct GroupDetailView: View {
     @State private var reminderIntervalMinutes: Int
     @State private var checkInOnOpen: Bool
     @State private var reshieldMinutes: Int
+    @State private var pauseOnDismiss: Bool
+    @State private var pauseSeconds: Int
+    @State private var pauseStepSeconds: Int
     @State private var isPickerPresented = false
     @State private var showDeleteConfirm = false
 
@@ -43,6 +46,9 @@ struct GroupDetailView: View {
         _reminderIntervalMinutes = State(initialValue: rule?.reminderIntervalMinutes ?? 5)
         _checkInOnOpen = State(initialValue: rule?.checkInOnOpen ?? false)
         _reshieldMinutes = State(initialValue: rule?.effectiveReshieldMinutes ?? GroupRule.minReshieldMinutes)
+        _pauseOnDismiss = State(initialValue: rule?.pauseEnabled ?? false)
+        _pauseSeconds = State(initialValue: rule?.pauseSeconds ?? 10)
+        _pauseStepSeconds = State(initialValue: rule?.pauseStepSeconds ?? 5)
     }
 
     var body: some View {
@@ -245,6 +251,32 @@ struct GroupDetailView: View {
                         .foregroundStyle(PlayerTheme.textMuted)
                 }
             }
+
+            pauseSection
+        }
+    }
+
+    /// Optional pause on Dismiss (GroupRule.pauseSeconds), all in
+    /// seconds. Applies to every dismissable shield this group shows --
+    /// the while-you-use-it reminder and the first-open check-in -- but
+    /// never to the daily-limit lockout, which can't be dismissed.
+    private var pauseSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Toggle(isOn: $pauseOnDismiss.animation()) {
+                Text("Pause before letting me in")
+                    .font(.system(size: 11))
+                    .foregroundStyle(PlayerTheme.textMuted)
+            }
+            .toggleStyle(.switch)
+            .tint(PlayerTheme.cyan)
+
+            if pauseOnDismiss {
+                numberField(label: "Pause for", value: $pauseSeconds, suffix: "sec", range: 1...GroupRule.maxPauseSeconds)
+                numberField(label: "Add each time", value: $pauseStepSeconds, suffix: "sec", range: 0...GroupRule.maxPauseSeconds)
+                Text("Optional. When you tap Dismiss, the screen holds and counts down, then opens the app for you at 0. Each pause after that today is longer by the extra seconds (0 keeps it the same). Resets at midnight. The seconds shown update each time you tap Dismiss.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(PlayerTheme.textMuted)
+            }
         }
     }
 
@@ -372,7 +404,9 @@ struct GroupDetailView: View {
             dailyBudgetMinutes: (isLimit && hasDailyLimit) ? max(dailyBudgetMinutes, 5) : nil,
             windows: isLimit ? windows : [],
             reminderIntervalMinutes: max(reminderIntervalMinutes, 1),
-            reshieldMinutes: (isLimit && checkInOnOpen) ? max(reshieldMinutes, GroupRule.minReshieldMinutes) : nil
+            reshieldMinutes: (isLimit && checkInOnOpen) ? max(reshieldMinutes, GroupRule.minReshieldMinutes) : nil,
+            pauseSeconds: (isLimit && pauseOnDismiss) ? min(max(pauseSeconds, 1), GroupRule.maxPauseSeconds) : nil,
+            pauseStepSeconds: (isLimit && pauseOnDismiss) ? min(max(pauseStepSeconds, 0), GroupRule.maxPauseSeconds) : nil
         )
         if let existingGroup {
             manager.updateGroup(AppGroup(

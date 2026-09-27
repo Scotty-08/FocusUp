@@ -95,10 +95,34 @@ struct GroupRule: Codable, Equatable {
     /// and always on.
     var reshieldMinutes: Int? = nil
 
+    /// Limit-mode OPTIONAL extra, all in seconds: nil = off; a value =
+    /// "when I tap Dismiss, hold the shield and count down this long
+    /// before letting me in." Each further pause the same day is
+    /// longer by `pauseStepSeconds` (nil/0 = same length every time).
+    /// Both optional so groups saved before this existed still decode
+    /// (a missing non-optional key would fail the whole groups array).
+    /// See ShieldActionExtension.startOrCheckPause for the mechanics.
+    var pauseSeconds: Int? = nil
+    var pauseStepSeconds: Int? = nil
+
+    /// Upper bound on any single pause, so a big step can't escalate a
+    /// pause into something absurd over a long day.
+    static let maxPauseSeconds = 3600
+
     var checkInOnOpen: Bool { reshieldMinutes != nil }
 
     var effectiveReshieldMinutes: Int {
         max(reshieldMinutes ?? Self.minReshieldMinutes, Self.minReshieldMinutes)
+    }
+
+    var pauseEnabled: Bool { (pauseSeconds ?? 0) > 0 }
+
+    /// Length of the next pause, given how many pauses already started
+    /// today: base + step x count, capped at maxPauseSeconds.
+    func pauseLength(afterPausesToday count: Int) -> Int {
+        guard let base = pauseSeconds, base > 0 else { return 0 }
+        let step = max(pauseStepSeconds ?? 0, 0)
+        return min(base + step * max(count, 0), Self.maxPauseSeconds)
     }
 }
 
@@ -141,6 +165,10 @@ struct AppGroup: Identifiable, Codable, Equatable {
             parts.append("Reminder every \(rule.reminderIntervalMinutes) min of use")
             if rule.checkInOnOpen {
                 parts.append("First-open check-in, again after \(rule.effectiveReshieldMinutes) min")
+            }
+            if rule.pauseEnabled, let base = rule.pauseSeconds {
+                let step = rule.pauseStepSeconds ?? 0
+                parts.append(step > 0 ? "\(base)s pause on dismiss, +\(step)s each time" : "\(base)s pause on dismiss")
             }
             return parts.joined(separator: ". ") + "."
         }
@@ -270,6 +298,17 @@ enum GroupIdentity {
 enum GroupRuntimeState {
     private static let exceededPrefix = "focusUp.group.exceededToday."
     private static let reasonPrefix = "focusUp.group.shieldReason."
+    private static let pausePrefix = "focusUp.group.pause."
+    private static let pauseCountPrefix = "focusUp.group.pauseCount."
+    private static let pauseDayPrefix = "focusUp.group.pauseDay."
+
+    /// A dismiss-pause in progress (see GroupRule.pauseSeconds). `id`
+    /// lets a background waiter tell "my pause" from a newer one that
+    /// replaced it, so a stale waiter never releases the wrong episode.
+    struct Pause: Codable, Equatable {
+        var id: UUID
+        var endsAt: Date
+    }
 
     private static var defaults: UserDefaults? {
         UserDefaults(suiteName: FocusUpShared.appGroupID)
@@ -297,17 +336,57 @@ enum GroupRuntimeState {
         return ShieldReason(rawValue: raw)
     }
 
+    /// Any change to why the shield is up (released, re-armed by a
+    /// reminder or cooldown, locked by the budget) ends whatever pause
+    /// was running -- the next dismiss starts a fresh one. This is the
+    /// single place that guarantees a finished or abandoned pause from
+    /// earlier never carries over onto a new shield.
     static func setShieldReason(_ reason: ShieldReason?, for groupID: UUID) {
         if let reason {
             defaults?.set(reason.rawValue, forKey: reasonPrefix + groupID.uuidString)
         } else {
             defaults?.removeObject(forKey: reasonPrefix + groupID.uuidString)
         }
+        defaults?.removeObject(forKey: pausePrefix + groupID.uuidString)
+    }
+
+    // MARK: Dismiss pause
+
+    static func pause(for groupID: UUID) -> Pause? {
+        guard let data = defaults?.data(forKey: pausePrefix + groupID.uuidString) else { return nil }
+        return try? JSONDecoder().decode(Pause.self, from: data)
+    }
+
+    static func setPause(_ pause: Pause?, for groupID: UUID) {
+        if let pause, let data = try? JSONEncoder().encode(pause) {
+            defaults?.set(data, forKey: pausePrefix + groupID.uuidString)
+        } else {
+            defaults?.removeObject(forKey: pausePrefix + groupID.uuidString)
+        }
+    }
+
+    /// How many pauses this group has started today. Stored with the
+    /// day it belongs to, so it resets at midnight on its own without
+    /// relying on any DeviceActivity callback firing.
+    static func pausesToday(_ groupID: UUID, now: Date = Date()) -> Int {
+        let today = Calendar.current.startOfDay(for: now).timeIntervalSince1970
+        guard defaults?.double(forKey: pauseDayPrefix + groupID.uuidString) == today else { return 0 }
+        return defaults?.integer(forKey: pauseCountPrefix + groupID.uuidString) ?? 0
+    }
+
+    static func recordPauseStarted(_ groupID: UUID, now: Date = Date()) {
+        let today = Calendar.current.startOfDay(for: now).timeIntervalSince1970
+        let next = pausesToday(groupID, now: now) + 1
+        defaults?.set(today, forKey: pauseDayPrefix + groupID.uuidString)
+        defaults?.set(next, forKey: pauseCountPrefix + groupID.uuidString)
     }
 
     static func clear(_ groupID: UUID) {
         defaults?.removeObject(forKey: exceededPrefix + groupID.uuidString)
         defaults?.removeObject(forKey: reasonPrefix + groupID.uuidString)
+        defaults?.removeObject(forKey: pausePrefix + groupID.uuidString)
+        defaults?.removeObject(forKey: pauseCountPrefix + groupID.uuidString)
+        defaults?.removeObject(forKey: pauseDayPrefix + groupID.uuidString)
     }
 }
 
