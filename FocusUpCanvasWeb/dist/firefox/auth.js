@@ -83,12 +83,29 @@ export function appleRedirectURL() {
     return ext.identity.getRedirectURL();
 }
 
+// Browsers without identity.launchWebAuthFlow (Safari) use a normal tab
+// instead: Supabase sends it back to this extension's own
+// auth-callback.html (declared web-accessible in the Safari manifest),
+// which hands the URL to finishAppleSignIn via background.js. Safari's
+// extension address is random per install, so Supabase's Redirect URLs
+// needs the pattern safari-web-extension://** for this to be allowed.
+export function supportsAuthWindow() {
+    return typeof ext.identity?.launchWebAuthFlow === "function";
+}
+
+function authorizeURL(redirectTo) {
+    return `${SUPABASE_URL}/auth/v1/authorize?provider=apple&redirect_to=${encodeURIComponent(redirectTo)}`;
+}
+
 export async function signInWithApple() {
+    if (!supportsAuthWindow()) {
+        await ext.tabs.create({ url: authorizeURL(ext.runtime.getURL("auth-callback.html")) });
+        return { ok: false, pending: true };
+    }
     const redirectTo = appleRedirectURL();
-    const url = `${SUPABASE_URL}/auth/v1/authorize?provider=apple&redirect_to=${encodeURIComponent(redirectTo)}`;
     let responseURL;
     try {
-        responseURL = await ext.identity.launchWebAuthFlow({ url, interactive: true });
+        responseURL = await ext.identity.launchWebAuthFlow({ url: authorizeURL(redirectTo), interactive: true });
     } catch (error) {
         const message = String(error?.message ?? error);
         if (/cancel|closed|did not approve/i.test(message)) {
@@ -96,6 +113,12 @@ export async function signInWithApple() {
         }
         return { ok: false, error: `Apple sign-in didn't finish. If this keeps happening, add ${redirectTo} to FocusUp's allowed redirect URLs.` };
     }
+    return finishAppleSignIn(responseURL);
+}
+
+// Turns the URL Supabase redirected to (tokens in its #fragment) into a
+// stored session.
+export async function finishAppleSignIn(responseURL) {
     const fragment = new URL(responseURL).hash.replace(/^#/, "");
     const params = new URLSearchParams(fragment || new URL(responseURL).search);
     if (params.get("error")) {

@@ -107,3 +107,22 @@ URL Configuration -> Redirect URLs, or Apple sign-in won't finish for
 store installs. Raise `version` in both manifests for every update.
 The listing text, images and privacy policy live in the store kit
 (`FocusUp-Store-Kit`).
+
+## Safari on Mac
+
+Safari extensions on macOS ship inside a small Mac app. `build.py` writes
+`dist/safari/` (no Apple sign-in: Safari has no `identity` API, so the
+popup offers email + password only). Turn it into an Xcode project once,
+in Terminal:
+
+    xcrun safari-web-extension-converter ~/Documents/Codex/FocusUp/FocusUpCanvasWeb/dist/safari \
+        --project-location ~/Documents/Codex/FocusUp \
+        --app-name "FocusUp for Canvas" \
+        --bundle-identifier com.scottgray.FocusUpCanvas \
+        --macos-only --swift --no-open
+
+The project references the files in `dist/safari`, so after changing the
+extension, run `python3 build.py` and rebuild the Mac app. To share it,
+archive the Mac app and use Distribute App -> Direct Distribution (Apple
+notarizes it); friends open the app once, then turn the extension on in
+Safari -> Settings -> Extensions.

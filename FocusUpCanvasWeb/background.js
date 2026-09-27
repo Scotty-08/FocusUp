@@ -14,7 +14,7 @@
 // permissions.onAdded reasoning this mirrors.
 import { ext } from "./ext.js";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
-import { signIn, signInWithApple, signOut, currentSession, validAccessToken } from "./auth.js";
+import { signIn, signInWithApple, finishAppleSignIn, signOut, currentSession, validAccessToken } from "./auth.js";
 
 const DEDUPE_MS = 5 * 1000; // guards against a page firing content.js twice
 // in the same instant (e.g. multiple frames) -- NOT a cooldown on real
@@ -242,6 +242,13 @@ ext.runtime.onMessage.addListener((request, _sender, sendResponse) => {
                 const result = await signInWithApple();
                 await ext.storage.local.set({ "focusUp.lastAppleResult": { ...result, session: undefined, at: Date.now() } });
                 sendResponse(result);
+                break;
+            }
+            case "completeAppleSignIn": {
+                // From auth-callback.html (Safari's tab-based Apple sign-in).
+                const result = await finishAppleSignIn(request.url);
+                await ext.storage.local.set({ "focusUp.lastAppleResult": { ...result, session: undefined, at: Date.now() } });
+                sendResponse({ ok: result.ok, error: result.error });
                 break;
             }
             case "signOut":

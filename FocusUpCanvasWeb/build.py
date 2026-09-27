@@ -12,6 +12,7 @@ writes
     dist/FocusUp-Canvas-Chrome.zip    same as dist/chrome, zipped (for sharing / testing)
     dist/FocusUp-Canvas-Store.zip     upload this to the Chrome Web Store and Edge Add-ons
                                       (no "key": the stores assign the id)
+    dist/safari/                      source for the Mac Safari app (see README, "Safari on Mac")
     dist/firefox/                     load via about:debugging
     dist/FocusUp-Canvas-Firefox.xpi   for addons.mozilla.org / signing
 """
@@ -21,11 +22,11 @@ import shutil
 import zipfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SHARED = ["background.js", "auth.js", "config.js", "content.js", "ext.js", "popup.html", "popup.css", "popup.js", "icons"]
+SHARED = ["background.js", "auth.js", "auth-callback.html", "auth-callback.js", "config.js", "content.js", "ext.js", "popup.html", "popup.css", "popup.js", "icons"]
 DIST = os.path.join(HERE, "dist")
 
 
-def build(name, manifest_path, archive, drop_key=False):
+def build(name, manifest_path, archive, drop_key=False, apple_signin=True):
     out = os.path.join(DIST, name)
     if os.path.exists(out):
         shutil.rmtree(out)
@@ -42,6 +43,11 @@ def build(name, manifest_path, archive, drop_key=False):
             json.dump(manifest, f, indent=4)
     else:
         shutil.copy2(manifest_path, os.path.join(out, "manifest.json"))
+    if not apple_signin:
+        # For a browser that can't do Apple sign-in at all: hide the button.
+        cfg = os.path.join(out, "config.js")
+        text = open(cfg).read().replace("APPLE_WEB_SIGNIN_ENABLED = true", "APPLE_WEB_SIGNIN_ENABLED = false")
+        open(cfg, "w").write(text)
     with zipfile.ZipFile(os.path.join(DIST, archive), "w", zipfile.ZIP_DEFLATED) as z:
         for root, _, files in os.walk(out):
             for f in sorted(files):
@@ -53,4 +59,5 @@ def build(name, manifest_path, archive, drop_key=False):
 if __name__ == "__main__":
     build("chrome", os.path.join(HERE, "manifest.json"), "FocusUp-Canvas-Chrome.zip")
     build("store", os.path.join(HERE, "manifest.json"), "FocusUp-Canvas-Store.zip", drop_key=True)
+    build("safari", os.path.join(HERE, "safari", "manifest.json"), "FocusUp-Canvas-Safari.zip")
     build("firefox", os.path.join(HERE, "firefox", "manifest.json"), "FocusUp-Canvas-Firefox.xpi")

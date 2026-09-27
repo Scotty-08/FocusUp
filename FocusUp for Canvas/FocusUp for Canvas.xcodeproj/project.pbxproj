@@ -1,0 +1,625 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 110;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		82367C5C306870F600AC812B /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82367C5B306870F600AC812B /* AppDelegate.swift */; };
+		82367C60306870F600AC812B /* Main.html in Resources */ = {isa = PBXBuildFile; fileRef = 82367C5E306870F600AC812B /* Main.html */; };
+		82367C62306870F600AC812B /* Icon.png in Resources */ = {isa = PBXBuildFile; fileRef = 82367C61306870F600AC812B /* Icon.png */; };
+		82367C64306870F600AC812B /* Style.css in Resources */ = {isa = PBXBuildFile; fileRef = 82367C63306870F600AC812B /* Style.css */; };
+		82367C66306870F600AC812B /* Script.js in Resources */ = {isa = PBXBuildFile; fileRef = 82367C65306870F600AC812B /* Script.js */; };
+		82367C68306870F600AC812B /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82367C67306870F600AC812B /* ViewController.swift */; };
+		82367C6B306870F600AC812B /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 82367C69306870F600AC812B /* Main.storyboard */; };
+		82367C6D306870F700AC812B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 82367C6C306870F700AC812B /* Assets.xcassets */; };
+		82367C74306870F700AC812B /* FocusUp for Canvas Extension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 82367C73306870F700AC812B /* FocusUp for Canvas Extension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		82367C79306870F700AC812B /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82367C78306870F700AC812B /* SafariWebExtensionHandler.swift */; };
+		82367C8F306870F700AC812B /* popup.js in Resources */ = {isa = PBXBuildFile; fileRef = 82367C85306870F700AC812B /* popup.js */; };
+		82367C90306870F700AC812B /* background.js in Resources */ = {isa = PBXBuildFile; fileRef = 82367C86306870F700AC812B /* background.js */; };
+		82367C91306870F700AC812B /* popup.html in Resources */ = {isa = PBXBuildFile; fileRef = 82367C87306870F700AC812B /* popup.html */; };
+		82367C92306870F700AC812B /* auth.js in Resources */ = {isa = PBXBuildFile; fileRef = 82367C88306870F700AC812B /* auth.js */; };
+		82367C93306870F700AC812B /* config.js in Resources */ = {isa = PBXBuildFile; fileRef = 82367C89306870F700AC812B /* config.js */; };
+		82367C94306870F700AC812B /* icons in Resources */ = {isa = PBXBuildFile; fileRef = 82367C8A306870F700AC812B /* icons */; };
+		82367C95306870F700AC812B /* ext.js in Resources */ = {isa = PBXBuildFile; fileRef = 82367C8B306870F700AC812B /* ext.js */; };
+		A1F0C0DE0000000000000002 /* auth-callback.html in Resources */ = {isa = PBXBuildFile; fileRef = A1F0C0DE0000000000000001 /* auth-callback.html */; };
+		A1F0C0DE0000000000000004 /* auth-callback.js in Resources */ = {isa = PBXBuildFile; fileRef = A1F0C0DE0000000000000003 /* auth-callback.js */; };
+		82367C96306870F700AC812B /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = 82367C8C306870F700AC812B /* manifest.json */; };
+		82367C97306870F700AC812B /* popup.css in Resources */ = {isa = PBXBuildFile; fileRef = 82367C8D306870F700AC812B /* popup.css */; };
+		82367C98306870F700AC812B /* content.js in Resources */ = {isa = PBXBuildFile; fileRef = 82367C8E306870F700AC812B /* content.js */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		82367C75306870F700AC812B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 82367C50306870F600AC812B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 82367C72306870F700AC812B;
+			remoteInfo = "FocusUp for Canvas Extension";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		82367C80306870F700AC812B /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			dstPath = "";
+			dstSubfolder = PlugIns;
+			files = (
+				82367C74306870F700AC812B /* FocusUp for Canvas Extension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		82367C58306870F600AC812B /* FocusUp for Canvas.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "FocusUp for Canvas.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		82367C5B306870F600AC812B /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		82367C5F306870F600AC812B /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = Base; path = Base.lproj/Main.html; sourceTree = "<group>"; };
+		82367C61306870F600AC812B /* Icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Icon.png; sourceTree = "<group>"; };
+		82367C63306870F600AC812B /* Style.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = Style.css; sourceTree = "<group>"; };
+		82367C65306870F600AC812B /* Script.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = Script.js; sourceTree = "<group>"; };
+		82367C67306870F600AC812B /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
+		82367C6A306870F600AC812B /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
+		82367C6C306870F700AC812B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		82367C6E306870F700AC812B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		82367C73306870F700AC812B /* FocusUp for Canvas Extension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "FocusUp for Canvas Extension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
+		82367C78306870F700AC812B /* SafariWebExtensionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariWebExtensionHandler.swift; sourceTree = "<group>"; };
+		82367C7A306870F700AC812B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		82367C85306870F700AC812B /* popup.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = popup.js; path = ../../FocusUpCanvasWeb/dist/safari/popup.js; sourceTree = "<group>"; };
+		82367C86306870F700AC812B /* background.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = background.js; path = ../../FocusUpCanvasWeb/dist/safari/background.js; sourceTree = "<group>"; };
+		82367C87306870F700AC812B /* popup.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = popup.html; path = ../../FocusUpCanvasWeb/dist/safari/popup.html; sourceTree = "<group>"; };
+		82367C88306870F700AC812B /* auth.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = auth.js; path = ../../FocusUpCanvasWeb/dist/safari/auth.js; sourceTree = "<group>"; };
+		82367C89306870F700AC812B /* config.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = config.js; path = ../../FocusUpCanvasWeb/dist/safari/config.js; sourceTree = "<group>"; };
+		82367C8A306870F700AC812B /* icons */ = {isa = PBXFileReference; lastKnownFileType = folder; name = icons; path = ../../FocusUpCanvasWeb/dist/safari/icons; sourceTree = "<group>"; };
+		82367C8B306870F700AC812B /* ext.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = ext.js; path = ../../FocusUpCanvasWeb/dist/safari/ext.js; sourceTree = "<group>"; };
+		A1F0C0DE0000000000000001 /* auth-callback.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = auth-callback.html; path = ../../FocusUpCanvasWeb/dist/safari/auth-callback.html; sourceTree = "<group>"; };
+		A1F0C0DE0000000000000003 /* auth-callback.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = auth-callback.js; path = ../../FocusUpCanvasWeb/dist/safari/auth-callback.js; sourceTree = "<group>"; };
+		82367C8C306870F700AC812B /* manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = manifest.json; path = ../../FocusUpCanvasWeb/dist/safari/manifest.json; sourceTree = "<group>"; };
+		82367C8D306870F700AC812B /* popup.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; name = popup.css; path = ../../FocusUpCanvasWeb/dist/safari/popup.css; sourceTree = "<group>"; };
+		82367C8E306870F700AC812B /* content.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = content.js; path = ../../FocusUpCanvasWeb/dist/safari/content.js; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		82367C55306870F600AC812B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
+		82367C70306870F700AC812B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		82367C4F306870F600AC812B = {
+			isa = PBXGroup;
+			children = (
+				82367C5A306870F600AC812B /* FocusUp for Canvas */,
+				82367C77306870F700AC812B /* FocusUp for Canvas Extension */,
+				82367C59306870F600AC812B /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		82367C59306870F600AC812B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				82367C58306870F600AC812B /* FocusUp for Canvas.app */,
+				82367C73306870F700AC812B /* FocusUp for Canvas Extension.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		82367C5A306870F600AC812B /* FocusUp for Canvas */ = {
+			isa = PBXGroup;
+			children = (
+				82367C5B306870F600AC812B /* AppDelegate.swift */,
+				82367C67306870F600AC812B /* ViewController.swift */,
+				82367C69306870F600AC812B /* Main.storyboard */,
+				82367C6C306870F700AC812B /* Assets.xcassets */,
+				82367C6E306870F700AC812B /* Info.plist */,
+				82367C5D306870F600AC812B /* Resources */,
+			);
+			path = "FocusUp for Canvas";
+			sourceTree = "<group>";
+		};
+		82367C5D306870F600AC812B /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				82367C5E306870F600AC812B /* Main.html */,
+				82367C61306870F600AC812B /* Icon.png */,
+				82367C63306870F600AC812B /* Style.css */,
+				82367C65306870F600AC812B /* Script.js */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		82367C77306870F700AC812B /* FocusUp for Canvas Extension */ = {
+			isa = PBXGroup;
+			children = (
+				82367C84306870F700AC812B /* Resources */,
+				82367C78306870F700AC812B /* SafariWebExtensionHandler.swift */,
+				82367C7A306870F700AC812B /* Info.plist */,
+			);
+			path = "FocusUp for Canvas Extension";
+			sourceTree = "<group>";
+		};
+		82367C84306870F700AC812B /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				82367C85306870F700AC812B /* popup.js */,
+				82367C86306870F700AC812B /* background.js */,
+				82367C87306870F700AC812B /* popup.html */,
+				82367C88306870F700AC812B /* auth.js */,
+				82367C89306870F700AC812B /* config.js */,
+				82367C8A306870F700AC812B /* icons */,
+				82367C8B306870F700AC812B /* ext.js */,
+				A1F0C0DE0000000000000001 /* auth-callback.html */,
+				A1F0C0DE0000000000000003 /* auth-callback.js */,
+				82367C8C306870F700AC812B /* manifest.json */,
+				82367C8D306870F700AC812B /* popup.css */,
+				82367C8E306870F700AC812B /* content.js */,
+			);
+			name = Resources;
+			path = "FocusUp for Canvas Extension";
+			sourceTree = SOURCE_ROOT;
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		82367C57306870F600AC812B /* FocusUp for Canvas */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 82367C81306870F700AC812B /* Build configuration list for PBXNativeTarget "FocusUp for Canvas" */;
+			buildPhases = (
+				82367C54306870F600AC812B /* Sources */,
+				82367C55306870F600AC812B /* Frameworks */,
+				82367C56306870F600AC812B /* Resources */,
+				82367C80306870F700AC812B /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				82367C76306870F700AC812B /* PBXTargetDependency */,
+			);
+			name = "FocusUp for Canvas";
+			productName = "FocusUp for Canvas";
+			productReference = 82367C58306870F600AC812B /* FocusUp for Canvas.app */;
+			productType = "com.apple.product-type.application";
+		};
+		82367C72306870F700AC812B /* FocusUp for Canvas Extension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 82367C7D306870F700AC812B /* Build configuration list for PBXNativeTarget "FocusUp for Canvas Extension" */;
+			buildPhases = (
+				82367C6F306870F700AC812B /* Sources */,
+				82367C70306870F700AC812B /* Frameworks */,
+				82367C71306870F700AC812B /* Resources */,
+			);
+			buildRules = (
+			);
+			name = "FocusUp for Canvas Extension";
+			productName = "FocusUp for Canvas Extension";
+			productReference = 82367C73306870F700AC812B /* FocusUp for Canvas Extension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		82367C50306870F600AC812B /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2700;
+				LastUpgradeCheck = 2700;
+				TargetAttributes = {
+					82367C57306870F600AC812B = {
+						CreatedOnToolsVersion = 27.0;
+					};
+					82367C72306870F700AC812B = {
+						CreatedOnToolsVersion = 27.0;
+					};
+				};
+			};
+			buildConfigurationList = 82367C53306870F600AC812B /* Build configuration list for PBXProject "FocusUp for Canvas" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 82367C4F306870F600AC812B;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 82367C59306870F600AC812B /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				82367C57306870F600AC812B /* FocusUp for Canvas */,
+				82367C72306870F700AC812B /* FocusUp for Canvas Extension */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		82367C56306870F600AC812B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+				82367C62306870F600AC812B /* Icon.png in Resources */,
+				82367C6B306870F600AC812B /* Main.storyboard in Resources */,
+				82367C66306870F600AC812B /* Script.js in Resources */,
+				82367C60306870F600AC812B /* Main.html in Resources */,
+				82367C6D306870F700AC812B /* Assets.xcassets in Resources */,
+				82367C64306870F600AC812B /* Style.css in Resources */,
+			);
+		};
+		82367C71306870F700AC812B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+				82367C92306870F700AC812B /* auth.js in Resources */,
+				82367C95306870F700AC812B /* ext.js in Resources */,
+				A1F0C0DE0000000000000002 /* auth-callback.html in Resources */,
+				A1F0C0DE0000000000000004 /* auth-callback.js in Resources */,
+				82367C90306870F700AC812B /* background.js in Resources */,
+				82367C91306870F700AC812B /* popup.html in Resources */,
+				82367C98306870F700AC812B /* content.js in Resources */,
+				82367C96306870F700AC812B /* manifest.json in Resources */,
+				82367C97306870F700AC812B /* popup.css in Resources */,
+				82367C94306870F700AC812B /* icons in Resources */,
+				82367C93306870F700AC812B /* config.js in Resources */,
+				82367C8F306870F700AC812B /* popup.js in Resources */,
+			);
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		82367C54306870F600AC812B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+				82367C68306870F600AC812B /* ViewController.swift in Sources */,
+				82367C5C306870F600AC812B /* AppDelegate.swift in Sources */,
+			);
+		};
+		82367C6F306870F700AC812B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+				82367C79306870F700AC812B /* SafariWebExtensionHandler.swift in Sources */,
+			);
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		82367C76306870F700AC812B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 82367C72306870F700AC812B /* FocusUp for Canvas Extension */;
+			targetProxy = 82367C75306870F700AC812B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		82367C5E306870F600AC812B /* Main.html */ = {
+			isa = PBXVariantGroup;
+			children = (
+				82367C5F306870F600AC812B /* Base */,
+			);
+			name = Main.html;
+			sourceTree = "<group>";
+		};
+		82367C69306870F600AC812B /* Main.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				82367C6A306870F600AC812B /* Base */,
+			);
+			name = Main.storyboard;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		82367C7B306870F700AC812B /* Debug configuration for PBXProject "FocusUp for Canvas" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		82367C7C306870F700AC812B /* Release configuration for PBXProject "FocusUp for Canvas" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		82367C7E306870F700AC812B /* Debug configuration for PBXNativeTarget "FocusUp for Canvas Extension" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 6KZ2Y5MG5M;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "FocusUp for Canvas Extension/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "FocusUp for Canvas Extension";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					SafariServices,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.scottgray.FocusUpCanvas.Extension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		82367C7F306870F700AC812B /* Release configuration for PBXNativeTarget "FocusUp for Canvas Extension" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 6KZ2Y5MG5M;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "FocusUp for Canvas Extension/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "FocusUp for Canvas Extension";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					SafariServices,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.scottgray.FocusUpCanvas.Extension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		82367C82306870F700AC812B /* Debug configuration for PBXNativeTarget "FocusUp for Canvas" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 6KZ2Y5MG5M;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "FocusUp for Canvas/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "FocusUp for Canvas";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMainStoryboardFile = Main;
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				INFOPLIST_KEY_NSViewGestureRecognizerIsExclusive = NO;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					SafariServices,
+					"-framework",
+					WebKit,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.scottgray.FocusUpCanvas;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		82367C83306870F700AC812B /* Release configuration for PBXNativeTarget "FocusUp for Canvas" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 6KZ2Y5MG5M;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "FocusUp for Canvas/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "FocusUp for Canvas";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMainStoryboardFile = Main;
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				INFOPLIST_KEY_NSViewGestureRecognizerIsExclusive = NO;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					SafariServices,
+					"-framework",
+					WebKit,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.scottgray.FocusUpCanvas;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		82367C53306870F600AC812B /* Build configuration list for PBXProject "FocusUp for Canvas" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				82367C7B306870F700AC812B /* Debug configuration for PBXProject "FocusUp for Canvas" */,
+				82367C7C306870F700AC812B /* Release configuration for PBXProject "FocusUp for Canvas" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		82367C7D306870F700AC812B /* Build configuration list for PBXNativeTarget "FocusUp for Canvas Extension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				82367C7E306870F700AC812B /* Debug configuration for PBXNativeTarget "FocusUp for Canvas Extension" */,
+				82367C7F306870F700AC812B /* Release configuration for PBXNativeTarget "FocusUp for Canvas Extension" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		82367C81306870F700AC812B /* Build configuration list for PBXNativeTarget "FocusUp for Canvas" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				82367C82306870F700AC812B /* Debug configuration for PBXNativeTarget "FocusUp for Canvas" */,
+				82367C83306870F700AC812B /* Release configuration for PBXNativeTarget "FocusUp for Canvas" */,
+			);
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 82367C50306870F600AC812B /* Project object */;
+	validationLevel = 1;
+}
